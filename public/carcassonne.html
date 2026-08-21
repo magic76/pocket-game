@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>卡卡頌 (Carcassonne) 典藏實體桌遊畫布</title>
+    <title>卡卡頌 (Carcassonne) 典藏版</title>
     <style>
         :root {
             --bg-color: #0b0704;
@@ -156,7 +156,6 @@
             flex: 1;
             position: relative;
             background: #140d07;
-            /* Authentic Wood Grain Planks / Tabletop background */
             background-image: 
                 radial-gradient(circle at 50% 50%, rgba(35, 23, 13, 0.6) 0%, rgba(10, 6, 3, 0.95) 100%),
                 linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
@@ -181,7 +180,6 @@
             position: absolute;
             width: 100px; height: 100px;
             transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            /* Subtle physical tile cast shadow onto wood table */
             filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
         }
         .map-tile.just-placed {
@@ -355,7 +353,7 @@
 
 <div id="toast"></div>
 
-<!-- TWO-ROW TOP HEADER (100VW GUARANTEE) -->
+<!-- TWO-ROW TOP HEADER -->
 <header class="app-header">
     <div class="header-top-row">
         <div class="logo">
@@ -590,6 +588,7 @@
         showToast(`🎨 地圖已套用【${THEME_PALETTES[newTheme].name}】質感！`);
     }
 
+    // 24 ARCHETYPES: Correct edges [North, East, South, West]
     const TILE_DEFS = {
         'A': { name: '修道院 (南出路)', edges: ['F','F','R','F'], hasMonastery: true, roadType: 'south' },
         'B': { name: '皇家大修道院', edges: ['F','F','F','F'], hasMonastery: true },
@@ -603,9 +602,9 @@
         'J': { name: '城牆 + 橫向古道', edges: ['C','R','F','R'], cityType: 'north', roadType: 'straight-h' },
         'K': { name: '城牆 + 轉角古道', edges: ['C','F','R','R'], cityType: 'north', roadType: 'south-west' },
         'L': { name: '城前三岔路口', edges: ['C','R','R','R'], cityType: 'north', roadType: 't-junction' },
-        'M': { name: '弧形大城堡', edges: ['C','F','F','C'], cityType: 'corner' },
-        'N': { name: '弧形城堡 (皇家盾)', edges: ['C','F','F','C'], cityType: 'corner', shield: true },
-        'O': { name: '弧形城 + 轉角古道', edges: ['C','R','R','C'], cityType: 'corner', roadType: 'east-south' },
+        'M': { name: '弧形大城堡', edges: ['C','C','F','F'], cityType: 'corner' },
+        'N': { name: '弧形城堡 (皇家盾)', edges: ['C','C','F','F'], cityType: 'corner', shield: true },
+        'O': { name: '弧形城 + 轉角古道', edges: ['C','C','R','R'], cityType: 'corner', roadType: 'south-west' },
         'P': { name: '三邊環抱都城', edges: ['C','C','F','C'], cityType: 'three-sides' },
         'Q': { name: '三邊都城 (金盾)', edges: ['C','C','F','C'], cityType: 'three-sides', shield: true },
         'R': { name: '三邊城 + 南大道', edges: ['C','C','R','C'], cityType: 'three-sides', roadType: 'south' },
@@ -679,20 +678,14 @@
         // 2. High-Detail Castle / Fortress Walls with German Half-Timbered Houses
         if (def.cityType === 'north') {
             svg += `<path d="M 0 0 L 100 0 C 80 44, 20 44, 0 0 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" filter="url(#wallShadow_${tileUid})" />`;
-            // Castle Battlements (Crenellations & Machicolations)
             svg += `<path d="M 6 10 L 18 10 L 18 2 M 32 10 L 44 10 L 44 2 M 58 10 L 70 10 L 70 2 M 84 10 L 94 10 L 94 2" stroke="#1c242c" stroke-width="2" fill="none" />`;
-            // Masonry stone lines
             svg += `<path d="M 22 22 L 78 22 M 16 32 L 84 32 M 35 22 L 35 32 M 65 22 L 65 32" stroke="#36424e" stroke-width="0.8" fill="none" opacity="0.6" />`;
-            // Charming Townhouse Cluster inside castle
             svg += `
                 <g transform="translate(32, 10)">
                     <rect x="0" y="8" width="20" height="14" fill="#f8fafc" stroke="#475569" stroke-width="1.2" />
-                    <!-- Half-timbered cross beams -->
                     <line x1="0" y1="8" x2="20" y2="22" stroke="#643b18" stroke-width="1" />
                     <line x1="20" y1="8" x2="0" y2="22" stroke="#643b18" stroke-width="1" />
-                    <!-- Gable roof -->
                     <polygon points="-2,8 10,-3 22,8" fill="url(#roof_${tileUid})" stroke="#5c1d06" stroke-width="1.2" />
-                    <!-- Chimney -->
                     <rect x="15" y="-5" width="3.5" height="7" fill="#4b3524" />
                     <circle cx="16.5" cy="-8" r="1.2" fill="#cbd5e1" opacity="0.7" />
                 </g>
@@ -700,18 +693,17 @@
         } else if (def.cityType === 'full') {
             svg += `<rect width="100" height="100" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.5" />`;
             svg += `<rect x="18" y="18" width="64" height="64" fill="#2d3748" rx="4" />`;
-            // Cobbled Citadel Courtyard with Manor House
             svg += `
                 <g transform="translate(24, 24)">
                     <rect x="4" y="18" width="44" height="28" fill="#f1f5f9" stroke="#334155" stroke-width="1.2" />
                     <polygon points="0,18 26,0 52,18" fill="url(#roof_${tileUid})" stroke="#5c1d06" stroke-width="1.5" />
                     <rect x="38" y="0" width="5" height="9" fill="#4a2e12" />
-                    <!-- Double Arched Oak Door -->
                     <path d="M 20 46 L 32 46 L 32 30 C 32 24 20 24 20 30 Z" fill="#643b18" stroke="#381e0b" stroke-width="1.5" />
                     <circle cx="29" cy="36" r="1" fill="#f59e0b" />
                 </g>
             `;
         } else if (def.cityType === 'corner') {
+            // CORNER CASTLE: Connects NORTH (y=0) and EAST (x=100)
             svg += `<path d="M 0 0 L 100 0 L 100 100 C 60 72, 28 40, 0 0 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" filter="url(#wallShadow_${tileUid})" />`;
             svg += `
                 <g transform="translate(42, 14)">
@@ -724,6 +716,7 @@
                 </g>
             `;
         } else if (def.cityType === 'three-sides') {
+            // THREE SIDES: Connects NORTH, EAST, and WEST (South is Field/Road)
             svg += `<path d="M 0 0 L 100 0 L 100 100 C 80 50, 65 68, 50 68 C 35 68, 20 50, 0 100 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" filter="url(#wallShadow_${tileUid})" />`;
             svg += `
                 <g transform="translate(30, 20)">
@@ -740,12 +733,25 @@
                     <polygon points="-2,8 14,-3 30,8" fill="url(#roof_${tileUid})" stroke="#5c1d06" stroke-width="1.2" />
                 </g>
             `;
+        } else if (def.cityType === 'opposite') {
+            // NORTH & SOUTH separate cities
+            svg += `<path d="M 0 0 L 100 0 C 80 34, 20 34, 0 0 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" filter="url(#wallShadow_${tileUid})" />`;
+            svg += `<path d="M 0 100 L 100 100 C 80 66, 20 66, 0 100 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" filter="url(#wallShadow_${tileUid})" />`;
+        } else if (def.cityType === 'separate-corners') {
+            // NORTH & EAST separate corner walls
+            svg += `<path d="M 0 0 L 60 0 C 40 24, 18 24, 0 0 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" filter="url(#wallShadow_${tileUid})" />`;
+            svg += `<path d="M 100 40 L 100 100 C 76 82, 76 60, 100 40 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" filter="url(#wallShadow_${tileUid})" />`;
         }
 
-        // Royal Crest / Shield with 3D Embossing
+        // Royal Crest / Shield with 3D Embossing (Positioned properly based on cityType)
         if (def.shield) {
+            let sx = 50, sy = 20;
+            if (def.cityType === 'corner') { sx = 66; sy = 28; }
+            else if (def.cityType === 'full') { sx = 50; sy = 28; }
+            else if (def.cityType === 'three-sides') { sx = 50; sy = 24; }
+
             svg += `
-                <g transform="translate(50, 20) scale(0.95)">
+                <g transform="translate(${sx}, ${sy}) scale(0.95)">
                     <path d="M-9,-12 L9,-12 L9,2 C9,9 0,16 0,16 C0,16 -9,9 -9,2 Z" fill="#1e40af" stroke="#fbbf24" stroke-width="1.8" />
                     <line x1="-9" y1="-12" x2="9" y2="2" stroke="#fbbf24" stroke-width="1.2" />
                     <circle cx="0" cy="2" r="2.5" fill="#f59e0b" stroke="#fff" stroke-width="0.8" />
