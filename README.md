@@ -39,12 +39,16 @@
 * Node.js v16+
 * npm
 
-### 啟動
+### 啟動遊戲
 ```bash
-git clone https://github.com/magic76/pocket-game.git
-cd pocket-game
-npm install
 ./start.sh
+# 或使用 npm start
 ```
 
-瀏覽器打開：`http://localhost:8080` (朋友連上熱點後掃描終端機 QR Code 即可進入)。
+### 關閉遊戲
+```bash
+./stop.sh
+# 或使用 npm stop
+```
+
+瀏覽器打開：`http://localhost:8080` (同行朋友連上熱點後掃描終端機 QR Code 即可進入)。
