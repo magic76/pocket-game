@@ -664,6 +664,8 @@ class PocketApp {
             this.dom.boardContainer.className = 'board-container checkers-board-ratio';
         } else if (this.selectedGame === 'connect4') {
             this.dom.boardContainer.className = 'board-container connect4-board-ratio';
+        } else if (this.selectedGame === 'blokus') {
+            this.dom.boardContainer.className = 'board-container blokus-board-container';
         } else {
             this.dom.boardContainer.className = 'board-container square-board';
         }
