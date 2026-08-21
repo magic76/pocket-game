@@ -3,41 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>卡卡頌 (Carcassonne) 典藏版</title>
+    <title>卡卡頌 (Carcassonne) 典藏實體桌遊畫布</title>
     <style>
         :root {
-            --bg-color: #070b14;
-            --card-bg: #111a2a;
+            --bg-color: #0b0704;
+            --card-bg: #16110b;
             --accent: #38bdf8;
-            --accent-gold: #fbbf24;
-            --border: #202e46;
+            --accent-gold: #f59e0b;
+            --border: #38281a;
             --text-main: #f8fafc;
-            --text-muted: #94a3b8;
+            --text-muted: #a89f91;
             --tile-size: 100px;
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif; user-select: none; -webkit-tap-highlight-color: transparent; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Serif TC", serif; user-select: none; -webkit-tap-highlight-color: transparent; }
         html, body { width: 100%; max-width: 100vw; overflow-x: hidden; height: 100vh; background: var(--bg-color); color: var(--text-main); display: flex; flex-direction: column; }
 
         /* ========================================= */
-        /* TWO-ROW COMPACT TOP HEADER (NO OVERFLOW)  */
+        /* TWO-ROW COMPACT TOP HEADER (100VW CLEAN)  */
         /* ========================================= */
         header.app-header {
             width: 100%;
             max-width: 100vw;
             box-sizing: border-box;
-            background: linear-gradient(180deg, #152135 0%, #0d1624 100%);
-            border-bottom: 1.5px solid var(--border);
+            background: linear-gradient(180deg, #1c140d 0%, #110c07 100%);
+            border-bottom: 2px solid #3d2a1c;
             padding: 6px 10px;
             display: flex;
             flex-direction: column;
             gap: 5px;
             z-index: 100;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.8);
             overflow-x: hidden;
         }
 
-        /* Row 1: Logo & Compact Controls */
         .header-top-row {
             display: flex;
             align-items: center;
@@ -48,13 +47,14 @@
         .logo {
             display: flex;
             align-items: center;
-            gap: 4px;
-            font-size: 1.05rem;
+            gap: 5px;
+            font-size: 1.1rem;
             font-weight: 900;
-            color: #fef08a;
-            text-shadow: 0 0 10px rgba(251, 191, 36, 0.4);
+            color: #fde047;
+            text-shadow: 0 0 10px rgba(251, 191, 36, 0.4), 0 2px 4px #000;
             white-space: nowrap;
             flex-shrink: 0;
+            letter-spacing: 1px;
         }
         .header-tools {
             display: flex;
@@ -65,29 +65,28 @@
         }
 
         .tool-select {
-            background: #1c2b42;
-            color: #f1f5f9;
-            border: 1px solid var(--border);
+            background: #261b11;
+            color: #fef08a;
+            border: 1px solid #4a3523;
             padding: 4px 6px;
             border-radius: 6px;
             font-size: 0.72rem;
-            font-weight: 700;
+            font-weight: 800;
             cursor: pointer;
             outline: none;
-            max-width: 100px;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            max-width: 105px;
         }
 
         button {
-            background: #1c2b42; color: #f1f5f9; border: 1px solid var(--border);
+            background: #2a1e14; color: #f1f5f9; border: 1px solid #4a3523;
             padding: 4px 7px; border-radius: 6px; font-size: 0.72rem; font-weight: 700;
             cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 2px;
             white-space: nowrap; flex-shrink: 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.4);
         }
         button:active { transform: scale(0.95); }
         button.primary { background: linear-gradient(135deg, #0284c7, #0369a1); border-color: #38bdf8; }
-        button.gold-btn { background: linear-gradient(135deg, #d97706, #b45309); border-color: #fbbf24; color: #fff; }
+        button.gold-btn { background: linear-gradient(135deg, #b45309, #78350f); border-color: #fbbf24; color: #fef08a; }
 
         /* Row 2: Player Status Cards */
         .header-scoreboard-row {
@@ -97,8 +96,8 @@
             width: 100%;
         }
         .player-card {
-            background: #090f1a;
-            border: 1.5px solid #18253a;
+            background: #140e08;
+            border: 1.5px solid #2e1f13;
             border-radius: 8px;
             padding: 4px 6px;
             display: flex;
@@ -109,22 +108,23 @@
         }
         .player-card.active.red {
             border-color: #ef4444;
-            background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), #090f1a);
-            box-shadow: 0 0 10px rgba(239, 68, 68, 0.35);
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.25), #140e08);
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
         }
         .player-card.active.blue {
             border-color: #3b82f6;
-            background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), #090f1a);
-            box-shadow: 0 0 10px rgba(59, 130, 246, 0.35);
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.25), #140e08);
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
         }
 
         .player-badge-icon {
             width: 24px; height: 24px; border-radius: 6px;
             display: flex; align-items: center; justify-content: center;
             flex-shrink: 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
         }
-        .player-badge-icon.red { background: linear-gradient(135deg, #ef4444, #991b1b); }
-        .player-badge-icon.blue { background: linear-gradient(135deg, #3b82f6, #1e40af); }
+        .player-badge-icon.red { background: linear-gradient(135deg, #dc2626, #7f1d1d); }
+        .player-badge-icon.blue { background: linear-gradient(135deg, #2563eb, #1e3a8a); }
 
         .player-info { flex: 1; min-width: 0; }
         .player-title-line {
@@ -145,21 +145,22 @@
 
         .player-stats-line {
             display: flex; justify-content: space-between;
-            font-size: 0.72rem; font-weight: 700; margin-top: 1px; color: #cbd5e1;
+            font-size: 0.72rem; font-weight: 700; margin-top: 1px; color: #d6cfc7;
         }
         .score-num { font-size: 0.85rem; font-weight: 900; color: #fff; }
 
         /* ========================================= */
-        /* INFINITE MAP CANVAS                       */
+        /* RUSTIC OAK WOOD TABLETOP CANVAS           */
         /* ========================================= */
         #viewport {
             flex: 1;
             position: relative;
-            background: #060910;
+            background: #140d07;
+            /* Authentic Wood Grain Planks / Tabletop background */
             background-image: 
-                radial-gradient(circle at 50% 50%, #0d1524 0%, #04070d 100%),
-                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+                radial-gradient(circle at 50% 50%, rgba(35, 23, 13, 0.6) 0%, rgba(10, 6, 3, 0.95) 100%),
+                linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
             background-size: 100% 100%, 50px 50px, 50px 50px;
             overflow: hidden;
             cursor: grab;
@@ -175,11 +176,13 @@
             transition: transform 0.04s linear;
         }
 
-        /* Seamless Tiles */
+        /* 3D Physical Cardboard Punchboard Tiles */
         .map-tile {
             position: absolute;
             width: 100px; height: 100px;
             transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            /* Subtle physical tile cast shadow onto wood table */
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
         }
         .map-tile.just-placed {
             animation: tileDrop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -191,12 +194,12 @@
             100% { transform: scale(1); }
         }
 
-        /* 3D Wooden Meeples */
+        /* 3D Hand-Carved Wooden Meeples */
         .meeple-on-map {
             position: absolute;
             width: 32px; height: 32px;
             z-index: 15;
-            filter: drop-shadow(0 6px 8px rgba(0,0,0,0.9));
+            filter: drop-shadow(0 8px 10px rgba(0,0,0,0.95));
             animation: meepleLand 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             pointer-events: none;
             transform: translate(-50%, -50%);
@@ -210,7 +213,7 @@
         .placement-slot {
             position: absolute;
             width: 100px; height: 100px;
-            border-radius: 4px;
+            border-radius: 6px;
             border: 2px dashed rgba(245, 158, 11, 0.85);
             background: rgba(245, 158, 11, 0.18);
             display: flex; align-items: center; justify-content: center;
@@ -233,14 +236,14 @@
             position: absolute;
             top: 50%; left: 50%;
             transform: translate(-50%, -50%);
-            background: rgba(15, 23, 42, 0.96);
+            background: rgba(22, 16, 11, 0.97);
             backdrop-filter: blur(12px);
             border: 2px solid var(--accent-gold);
             border-radius: 14px;
             padding: 12px;
             display: flex; flex-direction: column; gap: 8px;
             z-index: 500;
-            box-shadow: 0 14px 35px rgba(0,0,0,0.85);
+            box-shadow: 0 14px 35px rgba(0,0,0,0.9);
             animation: tileDrop 0.25s;
             min-width: 200px;
         }
@@ -248,10 +251,10 @@
         .meeple-btn-group { display: flex; flex-direction: column; gap: 5px; }
         .meeple-choice-btn {
             padding: 6px 10px; font-size: 0.78rem; border-radius: 8px;
-            background: #1e293b; border: 1px solid var(--border); color: #fff;
+            background: #2b1f14; border: 1px solid #4a3523; color: #fff;
             display: flex; align-items: center; justify-content: space-between;
         }
-        .meeple-choice-btn:hover { background: #334155; border-color: var(--accent); }
+        .meeple-choice-btn:hover { background: #3d2c1d; border-color: var(--accent-gold); }
 
         /* Floating Score Popups */
         .score-popup {
@@ -274,25 +277,25 @@
             position: absolute;
             bottom: 12px; left: 50%;
             transform: translateX(-50%);
-            background: rgba(17, 26, 42, 0.96);
+            background: rgba(22, 16, 11, 0.96);
             backdrop-filter: blur(14px);
-            border: 1.5px solid var(--border);
+            border: 1.5px solid #4a3523;
             border-radius: 16px;
             padding: 8px 12px;
             display: flex; align-items: center; gap: 12px;
-            box-shadow: 0 10px 35px rgba(0,0,0,0.75);
+            box-shadow: 0 10px 35px rgba(0,0,0,0.85);
             z-index: 100; max-width: 95%; width: auto;
         }
         .current-tile-preview {
             width: 72px; height: 72px;
-            border-radius: 8px; background: #0f172a;
-            box-shadow: inset 0 2px 5px rgba(0,0,0,0.6), 0 4px 12px rgba(0,0,0,0.5);
+            border-radius: 8px; background: #0f0a06;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.8), 0 4px 12px rgba(0,0,0,0.6);
             display: flex; align-items: center; justify-content: center;
             overflow: hidden; flex-shrink: 0;
         }
         .tile-rotator { width: 100%; height: 100%; transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
         .hud-info { display: flex; flex-direction: column; gap: 2px; }
-        .hud-title { font-size: 0.85rem; font-weight: 800; color: #fff; }
+        .hud-title { font-size: 0.85rem; font-weight: 800; color: #fde047; }
         .hud-desc { font-size: 0.7rem; color: var(--text-muted); }
         .hud-actions { display: flex; gap: 6px; margin-top: 2px; }
 
@@ -303,45 +306,46 @@
         }
         .zoom-btn {
             width: 38px; height: 38px;
-            background: rgba(24, 36, 56, 0.92);
-            border: 1.5px solid var(--border); border-radius: 50%;
-            color: #fff; font-size: 1.15rem; font-weight: 900;
+            background: rgba(30, 21, 14, 0.94);
+            border: 1.5px solid #4a3523; border-radius: 50%;
+            color: #fde047; font-size: 1.15rem; font-weight: 900;
             display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 6px 14px rgba(0,0,0,0.5);
+            box-shadow: 0 6px 14px rgba(0,0,0,0.6);
         }
 
         /* Modal Gallery of 24 Archetypes */
         .modal {
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.85); backdrop-filter: blur(10px);
+            background: rgba(0,0,0,0.88); backdrop-filter: blur(10px);
             display: flex; align-items: center; justify-content: center;
             z-index: 1000; padding: 16px;
         }
         .modal.hidden { display: none; }
         .modal-card {
-            background: #131d2e; border: 1.5px solid var(--border);
+            background: #1a120b; border: 1.5px solid #4a3523;
             border-radius: 18px; padding: 18px; max-width: 580px; width: 100%;
             max-height: 85vh; display: flex; flex-direction: column; gap: 12px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.9);
         }
         .gallery-grid {
             display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
             gap: 8px; overflow-y: auto; padding: 4px; max-height: 60vh;
         }
         .gallery-item {
-            background: #0b1320; border: 1.5px solid var(--border);
+            background: #110b07; border: 1.5px solid #38281a;
             border-radius: 8px; padding: 6px; display: flex; flex-direction: column;
             align-items: center; gap: 4px; cursor: pointer; transition: all 0.15s;
         }
-        .gallery-item:hover { transform: scale(1.08); border-color: var(--accent); background: #1a273d; }
+        .gallery-item:hover { transform: scale(1.08); border-color: var(--accent-gold); background: #261a10; }
         .gallery-item-name { font-size: 0.65rem; color: var(--text-muted); text-align: center; font-weight: 700; }
 
         /* Toast */
         #toast {
             position: fixed; top: 16px; left: 50%;
             transform: translateX(-50%) translateY(-100px);
-            background: #0284c7; color: #fff; padding: 7px 16px;
+            background: #b45309; color: #fff; padding: 7px 16px;
             border-radius: 20px; font-size: 0.82rem; font-weight: 700;
-            box-shadow: 0 4px 18px rgba(0,0,0,0.5); z-index: 2000;
+            box-shadow: 0 4px 18px rgba(0,0,0,0.6); z-index: 2000;
             transition: transform 0.3s;
         }
         #toast.show { transform: translateX(-50%) translateY(0); }
@@ -351,9 +355,8 @@
 
 <div id="toast"></div>
 
-<!-- TWO-ROW TOP HEADER (COMPACT 100VW) -->
+<!-- TWO-ROW TOP HEADER (100VW GUARANTEE) -->
 <header class="app-header">
-    <!-- Row 1: Logo & Tools -->
     <div class="header-top-row">
         <div class="logo">
             <span>🏰</span>
@@ -361,10 +364,10 @@
         </div>
         <div class="header-tools">
             <select id="theme-selector" class="tool-select" onchange="changeMapTheme(this.value)">
-                <option value="classic">🌿 經典翠綠</option>
-                <option value="parchment">📜 羊皮復古</option>
-                <option value="autumn">🍂 金秋豐收</option>
-                <option value="winter">❄️ 冰雪王國</option>
+                <option value="classic">🎨 手繪典藏風</option>
+                <option value="warm_oil">🖼️ 歐式油畫風</option>
+                <option value="autumn">🍂 金秋莊園風</option>
+                <option value="parchment">📜 羊皮古地圖</option>
             </select>
             <button class="gold-btn" onclick="generatePresetKingdom('prosperous')">✨ 範例</button>
             <button onclick="toggleGalleryModal()">📚 圖鑑</button>
@@ -372,7 +375,6 @@
         </div>
     </div>
 
-    <!-- Row 2: Player Status Cards -->
     <div class="header-scoreboard-row">
         <div id="p1-score-pill" class="player-card active red">
             <div class="player-badge-icon red">
@@ -433,7 +435,7 @@
             </div>
         </div>
         <div class="hud-info">
-            <div id="hud-tile-name" class="hud-title">古道林地 (Road)</div>
+            <div id="hud-tile-name" class="hud-title">鵝卵石古道 (Road)</div>
             <div class="hud-desc">
                 剩餘: <b id="deck-count-text">71/72</b> ｜ 點擊黃色 <b>[➕]</b> 拼放
             </div>
@@ -449,11 +451,11 @@
 <div id="gallery-modal" class="modal hidden" onclick="if(event.target === this) toggleGalleryModal();">
     <div class="modal-card">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h2 style="font-size: 1.1rem; font-weight: 800; color: var(--accent-gold);">📜 24 種歐式板塊圖鑑</h2>
+            <h2 style="font-size: 1.1rem; font-weight: 800; color: var(--accent-gold);">📜 24 種經典板塊原型圖鑑</h2>
             <button onclick="toggleGalleryModal()">✕ 關閉</button>
         </div>
         <p style="font-size: 0.78rem; color: var(--text-muted);">
-            點擊任意板塊即可將其切換為「當前手牌」，在無限地圖上直接拼放！
+            點擊任意板塊即可將其切換為「當前手牌」，在桌面上直接拼放！
         </p>
         <div id="gallery-grid" class="gallery-grid">
             <!-- 24 tiles injected here -->
@@ -486,8 +488,8 @@
             const osc = this.ctx.createOscillator();
             const gain = this.ctx.createGain();
             osc.type = 'triangle';
-            osc.frequency.setValueAtTime(420, this.ctx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(110, this.ctx.currentTime + 0.09);
+            osc.frequency.setValueAtTime(380, this.ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.09);
             gain.gain.setValueAtTime(0.35, this.ctx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.09);
             osc.connect(gain); gain.connect(this.ctx.destination);
@@ -499,8 +501,8 @@
             const osc = this.ctx.createOscillator();
             const gain = this.ctx.createGain();
             osc.type = 'sine';
-            osc.frequency.setValueAtTime(320, this.ctx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(680, this.ctx.currentTime + 0.12);
+            osc.frequency.setValueAtTime(280, this.ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(560, this.ctx.currentTime + 0.12);
             gain.gain.setValueAtTime(0.35, this.ctx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
             osc.connect(gain); gain.connect(this.ctx.destination);
@@ -526,68 +528,66 @@
     const audio = new SoundFX();
 
     // ==========================================
-    // 🎨 4 DRAMATICALLY DISTINCT MAP THEMES
+    // 🎨 COMMERCIAL BOARD-GAME ART ENGINE
     // ==========================================
-    let currentMapTheme = 'classic'; // 'classic' | 'parchment' | 'autumn' | 'winter'
+    let currentMapTheme = 'classic'; // 'classic' | 'warm_oil' | 'autumn' | 'parchment'
 
-    const THEME_PRESETS = {
+    const THEME_PALETTES = {
         classic: {
-            name: '經典翠綠',
-            grassGrad: ['#559938', '#427d28', '#34681e'],
-            wallGrad: ['#94a3b8', '#64748b', '#475569'],
-            wallBorder: '#334155',
-            roofGrad: ['#f97316', '#ea580c', '#9a3412'],
-            roadBase: '#8c6d3b',
-            roadSurface: '#eedaa2',
-            treeFoliage: '#2d5e1a',
-            decorations: 'sheep',
-            bgTint: '#060910'
+            name: '手繪典藏風',
+            grassGrad: ['#588b35', '#467527', '#345b1c'],
+            furrowColor: '#2b4d16',
+            wallStone: ['#8898aa', '#5b6b7d', '#3f4c5a'],
+            wallCap: '#a3b3c6',
+            roofClay: ['#e25822', '#c2410c', '#8a2b06'],
+            roadSand: '#dfca96',
+            roadPebble: '#ba9d66',
+            roadTrack: '#8c6f41',
+            foliage: ['#285217', '#3a7322', '#1a380e']
         },
-        parchment: {
-            name: '羊皮復古',
-            grassGrad: ['#ded1af', '#cbbb94', '#b3a178'],
-            wallGrad: ['#8f8274', '#706456', '#52473b'],
-            wallBorder: '#3e3428',
-            roofGrad: ['#b87333', '#8b4513', '#5c2c0e'],
-            roadBase: '#6e5e4a',
-            roadSurface: '#f5eedb',
-            treeFoliage: '#596342',
-            decorations: 'vintage',
-            bgTint: '#1c1712'
+        warm_oil: {
+            name: '歐式油畫風',
+            grassGrad: ['#62993e', '#4c7c2e', '#365d1f'],
+            furrowColor: '#2d5218',
+            wallStone: ['#9c9384', '#706758', '#4b4337'],
+            wallCap: '#b8b0a1',
+            roofClay: ['#ea580c', '#c2410c', '#7c2d12'],
+            roadSand: '#f0ddab',
+            roadPebble: '#cca66b',
+            roadTrack: '#9c743d',
+            foliage: ['#2e5b1c', '#44852a', '#1e3d11']
         },
         autumn: {
-            name: '金秋豐收',
-            grassGrad: ['#c68a26', '#a16c19', '#7e500e'],
-            wallGrad: ['#7d7265', '#5a5045', '#3d342b'],
-            wallBorder: '#2e261e',
-            roofGrad: ['#dc2626', '#b91c1c', '#7f1d1d'],
-            roadBase: '#5e431f',
-            roadSurface: '#fef08a',
-            treeFoliage: '#c2410c',
-            decorations: 'hay',
-            bgTint: '#181109'
+            name: '金秋莊園風',
+            grassGrad: ['#c98928', '#9e6716', '#72460b'],
+            furrowColor: '#5c3707',
+            wallStone: ['#7c7062', '#574d41', '#383027'],
+            wallCap: '#9e9182',
+            roofClay: ['#b91c1c', '#991b1b', '#5f1212'],
+            roadSand: '#fce79f',
+            roadPebble: '#d1ab5a',
+            roadTrack: '#997327',
+            foliage: ['#b45309', '#ea580c', '#78350f']
         },
-        winter: {
-            name: '冰雪王國',
-            grassGrad: ['#e2e8f0', '#cbd5e1', '#94a3b8'],
-            wallGrad: ['#64748b', '#475569', '#334155'],
-            wallBorder: '#1e293b',
-            roofGrad: ['#38bdf8', '#0284c7', '#0369a1'],
-            roadBase: '#475569',
-            roadSurface: '#f1f5f9',
-            treeFoliage: '#1e3a5f',
-            decorations: 'snow',
-            bgTint: '#09101d'
+        parchment: {
+            name: '羊皮古地圖',
+            grassGrad: ['#ded1af', '#cbbb94', '#ab9a71'],
+            furrowColor: '#917f54',
+            wallStone: ['#8c7f70', '#6e6254', '#4d4236'],
+            wallCap: '#aba092',
+            roofClay: ['#a0522d', '#7c3f20', '#542610'],
+            roadSand: '#f7edd2',
+            roadPebble: '#d4be92',
+            roadTrack: '#8c7750',
+            foliage: ['#596644', '#718256', '#3e4a2d']
         }
     };
 
     function changeMapTheme(newTheme) {
         currentMapTheme = newTheme;
-        const preset = THEME_PRESETS[newTheme] || THEME_PRESETS.classic;
-        document.getElementById('viewport').style.background = preset.bgTint;
         renderWorld();
         audio.playSnap();
-        showToast(`🎨 已切換為【${preset.name}】風格！`);
+        showToast(`🎨 地圖已套用【${THEME_PALETTES[newTheme].name}】質感！`);
     }
 
     const TILE_DEFS = {
@@ -619,159 +619,179 @@
 
     function renderTileSVG(typeKey, rotation = 0, size = 100, tileUid = 'main') {
         const def = TILE_DEFS[typeKey] || TILE_DEFS['U'];
-        const th = THEME_PRESETS[currentMapTheme] || THEME_PRESETS.classic;
+        const p = THEME_PALETTES[currentMapTheme] || THEME_PALETTES.classic;
 
         let svg = `<svg viewBox="0 0 100 100" width="${size}" height="${size}" style="transform: rotate(${rotation * 90}deg);">`;
         
         svg += `
             <defs>
                 <linearGradient id="grass_${tileUid}" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stop-color="${th.grassGrad[0]}" />
-                    <stop offset="50%" stop-color="${th.grassGrad[1]}" />
-                    <stop offset="100%" stop-color="${th.grassGrad[2]}" />
+                    <stop offset="0%" stop-color="${p.grassGrad[0]}" />
+                    <stop offset="55%" stop-color="${p.grassGrad[1]}" />
+                    <stop offset="100%" stop-color="${p.grassGrad[2]}" />
                 </linearGradient>
                 <linearGradient id="wall_${tileUid}" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stop-color="${th.wallGrad[0]}" />
-                    <stop offset="60%" stop-color="${th.wallGrad[1]}" />
-                    <stop offset="100%" stop-color="${th.wallGrad[2]}" />
+                    <stop offset="0%" stop-color="${p.wallStone[0]}" />
+                    <stop offset="50%" stop-color="${p.wallStone[1]}" />
+                    <stop offset="100%" stop-color="${p.wallStone[2]}" />
                 </linearGradient>
                 <linearGradient id="roof_${tileUid}" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stop-color="${th.roofGrad[0]}" />
-                    <stop offset="50%" stop-color="${th.roofGrad[1]}" />
-                    <stop offset="100%" stop-color="${th.roofGrad[2]}" />
+                    <stop offset="0%" stop-color="${p.roofClay[0]}" />
+                    <stop offset="60%" stop-color="${p.roofClay[1]}" />
+                    <stop offset="100%" stop-color="${p.roofClay[2]}" />
                 </linearGradient>
-                <filter id="shadow_${tileUid}" x="-20%" y="-20%" width="140%" height="140%">
-                    <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#000" flood-opacity="0.45" />
+                <filter id="wallShadow_${tileUid}" x="-20%" y="-20%" width="140%" height="140%">
+                    <feDropShadow dx="0" dy="3.5" stdDeviation="2.5" flood-color="#000" flood-opacity="0.55" />
                 </filter>
             </defs>
         `;
 
-        // 1. Seamless Pasture Grassland
+        // 1. Seamless Pasture Grassland Base
         svg += `<rect width="100" height="100" fill="url(#grass_${tileUid})" />`;
         
-        // Micro-decorations depending on theme
-        if (th.decorations === 'sheep') {
-            svg += `
-                <g transform="translate(18, 18)"><circle cx="0" cy="0" r="4.5" fill="${th.treeFoliage}" /><circle cx="3" cy="-1" r="3.5" fill="${th.treeFoliage}" opacity="0.8" /></g>
-                <g transform="translate(82, 80)"><circle cx="0" cy="0" r="4.5" fill="${th.treeFoliage}" /></g>
-                <g transform="translate(24, 78)"><ellipse cx="0" cy="0" rx="3.5" ry="2.5" fill="#f8fafc" /><circle cx="3" cy="-1" r="1.5" fill="#334155" /></g>
-                <circle cx="82" cy="22" r="1.4" fill="#fef08a" /><circle cx="85" cy="25" r="1.1" fill="#f43f5e" />
-            `;
-        } else if (th.decorations === 'hay') {
-            svg += `
-                <g transform="translate(18, 18)"><circle cx="0" cy="0" r="5" fill="${th.treeFoliage}" /></g>
-                <g transform="translate(26, 78)"><ellipse cx="0" cy="0" rx="4" ry="3" fill="#fef08a" stroke="#ca8a04" stroke-width="0.8" /></g>
-                <circle cx="82" cy="78" r="4.5" fill="${th.treeFoliage}" />
-            `;
-        } else if (th.decorations === 'snow') {
-            svg += `
-                <g transform="translate(18, 18)"><polygon points="0,-6 -5,4 5,4" fill="#1e3a5f" /><polygon points="0,-7 -3,-2 3,-2" fill="#ffffff" /></g>
-                <g transform="translate(82, 80)"><polygon points="0,-6 -5,4 5,4" fill="#1e3a5f" /><polygon points="0,-7 -3,-2 3,-2" fill="#ffffff" /></g>
-                <ellipse cx="25" cy="80" rx="4" ry="2" fill="#93c5fd" opacity="0.4" />
-            `;
-        } else {
-            svg += `
-                <g transform="translate(18, 18)"><circle cx="0" cy="0" r="4.5" fill="${th.treeFoliage}" /></g>
-                <g transform="translate(82, 80)"><circle cx="0" cy="0" r="4.5" fill="${th.treeFoliage}" /></g>
-                <line x1="20" y1="75" x2="32" y2="75" stroke="#5c4d3c" stroke-width="1.2" stroke-dasharray="2 2" />
-            `;
-        }
+        // Organic Farmland Furrows & Grass Texture Details
+        svg += `
+            <path d="M 8 15 Q 25 12 38 16 M 12 24 Q 28 20 42 25 M 65 78 Q 80 75 92 80 M 60 86 Q 76 83 88 88" stroke="${p.furrowColor}" stroke-width="0.8" fill="none" opacity="0.6" />
+            <!-- Trees & Bushes with Realistic Tree Trunks & Foliage -->
+            <g transform="translate(18, 18)">
+                <ellipse cx="2" cy="3" rx="6" ry="4" fill="#000" opacity="0.3" />
+                <rect x="-1" y="0" width="2" height="4" fill="#4a2e12" />
+                <circle cx="0" cy="-2" r="5" fill="${p.foliage[0]}" />
+                <circle cx="3" cy="-3" r="3.8" fill="${p.foliage[1]}" />
+                <circle cx="-3" cy="-1" r="3.5" fill="${p.foliage[2]}" />
+            </g>
+            <g transform="translate(82, 80)">
+                <ellipse cx="2" cy="3" rx="6" ry="4" fill="#000" opacity="0.3" />
+                <rect x="-1" y="0" width="2" height="4" fill="#4a2e12" />
+                <circle cx="0" cy="-2" r="5.2" fill="${p.foliage[0]}" />
+                <circle cx="-3" cy="-3" r="4" fill="${p.foliage[1]}" />
+            </g>
+            <!-- Grazing Fluffy Sheep 🐑 -->
+            <g transform="translate(24, 76)">
+                <ellipse cx="0" cy="0" rx="4" ry="2.8" fill="#f8fafc" />
+                <circle cx="3.8" cy="-1" r="1.8" fill="#334155" />
+                <circle cx="-2.5" cy="0.6" r="1.2" fill="#e2e8f0" />
+                <line x1="-1.5" y1="2" x2="-1.5" y2="4.5" stroke="#334155" stroke-width="0.8" />
+                <line x1="1.5" y1="2" x2="1.5" y2="4.5" stroke="#334155" stroke-width="0.8" />
+            </g>
+        `;
 
-        // 2. High-Detail Castle Walls & Townhouses
+        // 2. High-Detail Castle / Fortress Walls with German Half-Timbered Houses
         if (def.cityType === 'north') {
-            svg += `<path d="M 0 0 L 100 0 C 80 44, 20 44, 0 0 Z" fill="url(#wall_${tileUid})" stroke="${th.wallBorder}" stroke-width="2.2" filter="url(#shadow_${tileUid})" />`;
-            svg += `<path d="M 8 9 L 18 9 L 18 2 M 32 9 L 42 9 L 42 2 M 58 9 L 68 9 L 68 2 M 82 9 L 92 9 L 92 2" stroke="#1e293b" stroke-width="2" fill="none" />`;
+            svg += `<path d="M 0 0 L 100 0 C 80 44, 20 44, 0 0 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" filter="url(#wallShadow_${tileUid})" />`;
+            // Castle Battlements (Crenellations & Machicolations)
+            svg += `<path d="M 6 10 L 18 10 L 18 2 M 32 10 L 44 10 L 44 2 M 58 10 L 70 10 L 70 2 M 84 10 L 94 10 L 94 2" stroke="#1c242c" stroke-width="2" fill="none" />`;
+            // Masonry stone lines
+            svg += `<path d="M 22 22 L 78 22 M 16 32 L 84 32 M 35 22 L 35 32 M 65 22 L 65 32" stroke="#36424e" stroke-width="0.8" fill="none" opacity="0.6" />`;
+            // Charming Townhouse Cluster inside castle
             svg += `
-                <g transform="translate(32, 12)">
-                    <rect x="0" y="8" width="18" height="12" fill="#f8fafc" stroke="#475569" stroke-width="1" />
-                    <polygon points="-2,8 9,-2 20,8" fill="url(#roof_${tileUid})" stroke="#7c2d12" stroke-width="1" />
-                    <rect x="13" y="-4" width="3" height="6" fill="#78350f" />
+                <g transform="translate(32, 10)">
+                    <rect x="0" y="8" width="20" height="14" fill="#f8fafc" stroke="#475569" stroke-width="1.2" />
+                    <!-- Half-timbered cross beams -->
+                    <line x1="0" y1="8" x2="20" y2="22" stroke="#643b18" stroke-width="1" />
+                    <line x1="20" y1="8" x2="0" y2="22" stroke="#643b18" stroke-width="1" />
+                    <!-- Gable roof -->
+                    <polygon points="-2,8 10,-3 22,8" fill="url(#roof_${tileUid})" stroke="#5c1d06" stroke-width="1.2" />
+                    <!-- Chimney -->
+                    <rect x="15" y="-5" width="3.5" height="7" fill="#4b3524" />
+                    <circle cx="16.5" cy="-8" r="1.2" fill="#cbd5e1" opacity="0.7" />
                 </g>
             `;
         } else if (def.cityType === 'full') {
-            svg += `<rect width="100" height="100" fill="url(#wall_${tileUid})" stroke="${th.wallBorder}" stroke-width="2.5" />`;
-            svg += `<rect x="18" y="18" width="64" height="64" fill="#334155" rx="4" />`;
+            svg += `<rect width="100" height="100" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.5" />`;
+            svg += `<rect x="18" y="18" width="64" height="64" fill="#2d3748" rx="4" />`;
+            // Cobbled Citadel Courtyard with Manor House
             svg += `
                 <g transform="translate(24, 24)">
-                    <rect x="4" y="20" width="44" height="26" fill="#e2e8f0" stroke="#475569" stroke-width="1.2" />
-                    <polygon points="0,20 26,2 52,20" fill="url(#roof_${tileUid})" stroke="#7c2d12" stroke-width="1.5" />
-                    <rect x="38" y="2" width="5" height="8" fill="#78350f" />
-                    <path d="M 20 46 L 32 46 L 32 30 C 32 24 20 24 20 30 Z" fill="#78350f" stroke="#451a03" stroke-width="1.5" />
+                    <rect x="4" y="18" width="44" height="28" fill="#f1f5f9" stroke="#334155" stroke-width="1.2" />
+                    <polygon points="0,18 26,0 52,18" fill="url(#roof_${tileUid})" stroke="#5c1d06" stroke-width="1.5" />
+                    <rect x="38" y="0" width="5" height="9" fill="#4a2e12" />
+                    <!-- Double Arched Oak Door -->
+                    <path d="M 20 46 L 32 46 L 32 30 C 32 24 20 24 20 30 Z" fill="#643b18" stroke="#381e0b" stroke-width="1.5" />
                     <circle cx="29" cy="36" r="1" fill="#f59e0b" />
                 </g>
             `;
         } else if (def.cityType === 'corner') {
-            svg += `<path d="M 0 0 L 100 0 L 100 100 C 60 72, 28 40, 0 0 Z" fill="url(#wall_${tileUid})" stroke="${th.wallBorder}" stroke-width="2.2" filter="url(#shadow_${tileUid})" />`;
+            svg += `<path d="M 0 0 L 100 0 L 100 100 C 60 72, 28 40, 0 0 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" filter="url(#wallShadow_${tileUid})" />`;
             svg += `
-                <g transform="translate(42, 16)">
-                    <rect x="0" y="8" width="16" height="10" fill="#f8fafc" stroke="#475569" stroke-width="1" />
-                    <polygon points="-2,8 8,0 18,8" fill="url(#roof_${tileUid})" stroke="#7c2d12" stroke-width="1" />
+                <g transform="translate(42, 14)">
+                    <rect x="0" y="8" width="16" height="11" fill="#f8fafc" stroke="#475569" stroke-width="1" />
+                    <polygon points="-2,8 8,-1 18,8" fill="url(#roof_${tileUid})" stroke="#5c1d06" stroke-width="1" />
                 </g>
-                <g transform="translate(68, 44)">
-                    <rect x="0" y="8" width="16" height="10" fill="#f8fafc" stroke="#475569" stroke-width="1" />
-                    <polygon points="-2,8 8,0 18,8" fill="url(#roof_${tileUid})" stroke="#7c2d12" stroke-width="1" />
+                <g transform="translate(68, 42)">
+                    <rect x="0" y="8" width="16" height="11" fill="#f8fafc" stroke="#475569" stroke-width="1" />
+                    <polygon points="-2,8 8,-1 18,8" fill="url(#roof_${tileUid})" stroke="#5c1d06" stroke-width="1" />
                 </g>
             `;
         } else if (def.cityType === 'three-sides') {
-            svg += `<path d="M 0 0 L 100 0 L 100 100 C 80 50, 65 68, 50 68 C 35 68, 20 50, 0 100 Z" fill="url(#wall_${tileUid})" stroke="${th.wallBorder}" stroke-width="2.2" filter="url(#shadow_${tileUid})" />`;
+            svg += `<path d="M 0 0 L 100 0 L 100 100 C 80 50, 65 68, 50 68 C 35 68, 20 50, 0 100 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" filter="url(#wallShadow_${tileUid})" />`;
             svg += `
-                <g transform="translate(30, 22)">
-                    <rect x="4" y="12" width="32" height="18" fill="#e2e8f0" stroke="#475569" stroke-width="1" />
-                    <polygon points="0,12 20,-2 40,12" fill="url(#roof_${tileUid})" stroke="#7c2d12" stroke-width="1.2" />
-                    <rect x="30" y="-2" width="4" height="6" fill="#78350f" />
+                <g transform="translate(30, 20)">
+                    <rect x="4" y="12" width="32" height="20" fill="#f8fafc" stroke="#475569" stroke-width="1" />
+                    <polygon points="0,12 20,-3 40,12" fill="url(#roof_${tileUid})" stroke="#5c1d06" stroke-width="1.4" />
+                    <rect x="30" y="-3" width="4" height="7" fill="#4a2e12" />
                 </g>
             `;
         } else if (def.cityType === 'bridge') {
-            svg += `<path d="M 0 28 C 40 28, 60 28, 100 28 L 100 72 C 60 72, 40 72, 0 72 Z" fill="url(#wall_${tileUid})" stroke="${th.wallBorder}" stroke-width="2.2" filter="url(#shadow_${tileUid})" />`;
+            svg += `<path d="M 0 28 C 40 28, 60 28, 100 28 L 100 72 C 60 72, 40 72, 0 72 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" filter="url(#wallShadow_${tileUid})" />`;
             svg += `
-                <g transform="translate(36, 36)">
-                    <rect x="0" y="8" width="28" height="14" fill="#e2e8f0" stroke="#475569" stroke-width="1" />
-                    <polygon points="-2,8 14,-2 30,8" fill="url(#roof_${tileUid})" stroke="#7c2d12" stroke-width="1.2" />
+                <g transform="translate(36, 34)">
+                    <rect x="0" y="8" width="28" height="15" fill="#f8fafc" stroke="#475569" stroke-width="1.2" />
+                    <polygon points="-2,8 14,-3 30,8" fill="url(#roof_${tileUid})" stroke="#5c1d06" stroke-width="1.2" />
                 </g>
             `;
         }
 
-        // Royal Crest / Shield
+        // Royal Crest / Shield with 3D Embossing
         if (def.shield) {
             svg += `
                 <g transform="translate(50, 20) scale(0.95)">
-                    <path d="M-9,-12 L9,-12 L9,2 C9,9 0,16 0,16 C0,16 -9,9 -9,2 Z" fill="#1d4ed8" stroke="#fbbf24" stroke-width="1.6" />
+                    <path d="M-9,-12 L9,-12 L9,2 C9,9 0,16 0,16 C0,16 -9,9 -9,2 Z" fill="#1e40af" stroke="#fbbf24" stroke-width="1.8" />
                     <line x1="-9" y1="-12" x2="9" y2="2" stroke="#fbbf24" stroke-width="1.2" />
-                    <circle cx="0" cy="2" r="2.5" fill="#f59e0b" stroke="#fbbf24" stroke-width="0.8" />
+                    <circle cx="0" cy="2" r="2.5" fill="#f59e0b" stroke="#fff" stroke-width="0.8" />
                 </g>
             `;
         }
 
-        // 3. Roads
+        // 3. Realistic Winding Sandstone Roads with Wheel Cart Tracks
         if (def.roadType === 'straight-v') {
-            svg += `<line x1="50" y1="0" x2="50" y2="100" stroke="${th.roadBase}" stroke-width="15" />`;
-            svg += `<line x1="50" y1="0" x2="50" y2="100" stroke="${th.roadSurface}" stroke-width="10" stroke-dasharray="5 2.5" />`;
+            svg += `<line x1="50" y1="0" x2="50" y2="100" stroke="${p.roadTrack}" stroke-width="15" stroke-linecap="round" />`;
+            svg += `<line x1="50" y1="0" x2="50" y2="100" stroke="${p.roadSand}" stroke-width="11" />`;
+            svg += `<line x1="47" y1="0" x2="47" y2="100" stroke="${p.roadPebble}" stroke-width="1.2" stroke-dasharray="8 4" />`;
+            svg += `<line x1="53" y1="0" x2="53" y2="100" stroke="${p.roadPebble}" stroke-width="1.2" stroke-dasharray="8 4" />`;
         } else if (def.roadType === 'straight-h') {
-            svg += `<line x1="0" y1="50" x2="100" y2="50" stroke="${th.roadBase}" stroke-width="15" />`;
-            svg += `<line x1="0" y1="50" x2="100" y2="50" stroke="${th.roadSurface}" stroke-width="10" stroke-dasharray="5 2.5" />`;
+            svg += `<line x1="0" y1="50" x2="100" y2="50" stroke="${p.roadTrack}" stroke-width="15" stroke-linecap="round" />`;
+            svg += `<line x1="0" y1="50" x2="100" y2="50" stroke="${p.roadSand}" stroke-width="11" />`;
+            svg += `<line x1="0" y1="47" x2="100" y2="47" stroke="${p.roadPebble}" stroke-width="1.2" stroke-dasharray="8 4" />`;
+            svg += `<line x1="0" y1="53" x2="100" y2="53" stroke="${p.roadPebble}" stroke-width="1.2" stroke-dasharray="8 4" />`;
         } else if (def.roadType === 'south-west') {
-            svg += `<path d="M 0 50 Q 50 50 50 100" stroke="${th.roadBase}" stroke-width="15" fill="none" />`;
-            svg += `<path d="M 0 50 Q 50 50 50 100" stroke="${th.roadSurface}" stroke-width="10" fill="none" stroke-dasharray="5 2.5" />`;
+            svg += `<path d="M 0 50 Q 50 50 50 100" stroke="${p.roadTrack}" stroke-width="15" fill="none" />`;
+            svg += `<path d="M 0 50 Q 50 50 50 100" stroke="${p.roadSand}" stroke-width="11" fill="none" />`;
+            svg += `<path d="M 0 47 Q 47 47 47 100" stroke="${p.roadPebble}" stroke-width="1.2" fill="none" stroke-dasharray="8 4" />`;
+            svg += `<path d="M 0 53 Q 53 53 53 100" stroke="${p.roadPebble}" stroke-width="1.2" fill="none" stroke-dasharray="8 4" />`;
         } else if (def.roadType === 'east-south') {
-            svg += `<path d="M 100 50 Q 50 50 50 100" stroke="${th.roadBase}" stroke-width="15" fill="none" />`;
-            svg += `<path d="M 100 50 Q 50 50 50 100" stroke="${th.roadSurface}" stroke-width="10" fill="none" stroke-dasharray="5 2.5" />`;
+            svg += `<path d="M 100 50 Q 50 50 50 100" stroke="${p.roadTrack}" stroke-width="15" fill="none" />`;
+            svg += `<path d="M 100 50 Q 50 50 50 100" stroke="${p.roadSand}" stroke-width="11" fill="none" />`;
+            svg += `<path d="M 100 47 Q 53 47 53 100" stroke="${p.roadPebble}" stroke-width="1.2" fill="none" stroke-dasharray="8 4" />`;
+            svg += `<path d="M 100 53 Q 47 53 47 100" stroke="${p.roadPebble}" stroke-width="1.2" fill="none" stroke-dasharray="8 4" />`;
         } else if (def.roadType === 'south') {
-            svg += `<line x1="50" y1="50" x2="50" y2="100" stroke="${th.roadBase}" stroke-width="15" />`;
-            svg += `<line x1="50" y1="50" x2="50" y2="100" stroke="${th.roadSurface}" stroke-width="10" stroke-dasharray="5 2.5" />`;
+            svg += `<line x1="50" y1="50" x2="50" y2="100" stroke="${p.roadTrack}" stroke-width="15" stroke-linecap="round" />`;
+            svg += `<line x1="50" y1="50" x2="50" y2="100" stroke="${p.roadSand}" stroke-width="11" />`;
         } else if (def.roadType === 't-junction') {
-            svg += `<path d="M 0 50 L 100 50 M 50 50 L 50 100" stroke="${th.roadBase}" stroke-width="15" fill="none" />`;
-            svg += `<path d="M 0 50 L 100 50 M 50 50 L 50 100" stroke="${th.roadSurface}" stroke-width="10" fill="none" stroke-dasharray="5 2.5" />`;
-            svg += `<circle cx="50" cy="50" r="8" fill="${th.roadBase}" />`;
-            svg += `<circle cx="50" cy="50" r="5" fill="${th.roadSurface}" />`;
+            svg += `<path d="M 0 50 L 100 50 M 50 50 L 50 100" stroke="${p.roadTrack}" stroke-width="15" fill="none" />`;
+            svg += `<path d="M 0 50 L 100 50 M 50 50 L 50 100" stroke="${p.roadSand}" stroke-width="11" fill="none" />`;
+            svg += `<circle cx="50" cy="50" r="8" fill="${p.roadTrack}" />`;
+            svg += `<circle cx="50" cy="50" r="5.5" fill="${p.roadSand}" />`;
         } else if (def.roadType === 'crossroad') {
-            svg += `<path d="M 0 50 L 100 50 M 50 0 L 50 100" stroke="${th.roadBase}" stroke-width="15" fill="none" />`;
-            svg += `<path d="M 0 50 L 100 50 M 50 0 L 50 100" stroke="${th.roadSurface}" stroke-width="10" fill="none" stroke-dasharray="5 2.5" />`;
+            svg += `<path d="M 0 50 L 100 50 M 50 0 L 50 100" stroke="${p.roadTrack}" stroke-width="15" fill="none" />`;
+            svg += `<path d="M 0 50 L 100 50 M 50 0 L 50 100" stroke="${p.roadSand}" stroke-width="11" fill="none" />`;
+            // Medieval Stone Village Well
             svg += `
                 <g transform="translate(50, 50)">
                     <circle cx="0" cy="0" r="10" fill="#475569" stroke="#1e293b" stroke-width="1.8" />
                     <circle cx="0" cy="0" r="6" fill="#0284c7" />
-                    <rect x="-1" y="-8" width="2" height="16" fill="#78350f" />
-                    <rect x="-7" y="-1" width="14" height="2" fill="#78350f" />
+                    <rect x="-1" y="-8" width="2" height="16" fill="#4a2e12" />
+                    <rect x="-7" y="-1" width="14" height="2" fill="#4a2e12" />
                 </g>
             `;
         }
@@ -780,18 +800,20 @@
         if (def.hasMonastery) {
             svg += `
                 <g transform="translate(50, 48)">
-                    <g transform="translate(-24, -8)"><circle cx="0" cy="0" r="6.5" fill="${th.treeFoliage}" /></g>
-                    <g transform="translate(24, -8)"><circle cx="0" cy="0" r="6.5" fill="${th.treeFoliage}" /></g>
-                    <g transform="translate(-20, 18)"><circle cx="0" cy="0" r="5.5" fill="${th.treeFoliage}" /></g>
-                    <g transform="translate(20, 18)"><circle cx="0" cy="0" r="5.5" fill="${th.treeFoliage}" /></g>
+                    <!-- Pine and cypress trees surrounding monastery -->
+                    <g transform="translate(-24, -8)"><circle cx="0" cy="0" r="6.5" fill="${p.foliage[0]}" /><circle cx="2" cy="-2" r="4.5" fill="${p.foliage[1]}" /></g>
+                    <g transform="translate(24, -8)"><circle cx="0" cy="0" r="6.5" fill="${p.foliage[0]}" /><circle cx="-2" cy="-2" r="4.5" fill="${p.foliage[1]}" /></g>
+                    <g transform="translate(-20, 18)"><circle cx="0" cy="0" r="5.5" fill="${p.foliage[0]}" /></g>
+                    <g transform="translate(20, 18)"><circle cx="0" cy="0" r="5.5" fill="${p.foliage[0]}" /></g>
 
-                    <rect x="-18" y="-12" width="36" height="30" fill="#f1f5f9" stroke="#475569" stroke-width="1.8" rx="2" filter="url(#shadow_${tileUid})" />
+                    <rect x="-18" y="-12" width="36" height="30" fill="#f8fafc" stroke="#475569" stroke-width="1.8" rx="2" filter="url(#wallShadow_${tileUid})" />
+                    <!-- Rose Stained-Glass Window -->
                     <circle cx="0" cy="0" r="4.5" fill="#38bdf8" stroke="#1e293b" stroke-width="1.2" />
                     <line x1="-4.5" y1="0" x2="4.5" y2="0" stroke="#1e293b" stroke-width="0.8" />
                     <line x1="0" y1="-4.5" x2="0" y2="4.5" stroke="#1e293b" stroke-width="0.8" />
                     
-                    <path d="M -5 18 L 5 18 L 5 8 C 5 5 -5 5 -5 8 Z" fill="#78350f" stroke="#451a03" stroke-width="1.2" />
-                    <polygon points="0,-26 -22,-10 22,-10" fill="url(#roof_${tileUid})" stroke="#7c2d12" stroke-width="1.8" />
+                    <path d="M -5 18 L 5 18 L 5 8 C 5 5 -5 5 -5 8 Z" fill="#643b18" stroke="#381e0b" stroke-width="1.2" />
+                    <polygon points="0,-26 -22,-10 22,-10" fill="url(#roof_${tileUid})" stroke="#5c1d06" stroke-width="1.8" />
                     <line x1="0" y1="-33" x2="0" y2="-26" stroke="#fbbf24" stroke-width="2.2" />
                     <line x1="-4" y1="-30" x2="4" y2="-30" stroke="#fbbf24" stroke-width="2.2" />
                 </g>
@@ -802,6 +824,7 @@
         return svg;
     }
 
+    // 3D Wooden Meeple
     function renderMeepleSVG(color = 'red') {
         const isRed = color === 'red';
         const gradId = isRed ? 'redMeepleG' : 'blueMeepleG';
