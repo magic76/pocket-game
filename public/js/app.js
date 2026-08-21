@@ -1292,9 +1292,9 @@ class PocketApp {
         });
         this.dom.boardEl.appendChild(catTabsEl);
 
-        // 4. Piece Drawer / Tray (Filtered)
-        const trayEl = document.createElement('div');
-        trayEl.className = 'blokus-tray';
+        // 4. Piece Gallery Grid (Displays all pieces in a clean responsive grid)
+        const gridContainer = document.createElement('div');
+        gridContainer.className = 'blokus-piece-grid';
 
         const filteredPieces = myPieces.filter(p => {
             if (this.blokusCategory === '5') return p.size === 5;
@@ -1305,22 +1305,32 @@ class PocketApp {
         });
 
         filteredPieces.forEach(p => {
-            const pieceBox = document.createElement('div');
-            pieceBox.className = `blokus-mini-piece ${p.id === this.selectedBlokusPieceId ? 'selected' : ''} ${p.used ? 'used' : ''}`;
+            const pieceCard = document.createElement('div');
+            const isSelected = p.id === this.selectedBlokusPieceId;
+            pieceCard.className = `blokus-piece-card ${isSelected ? 'selected' : ''} ${p.used ? 'used' : ''}`;
 
-            const shape = (p.id === this.selectedBlokusPieceId && this.currentBlokusShape) ? this.currentBlokusShape : p.coords;
-            pieceBox.appendChild(this.renderMiniPolyominoSVG(shape, engine.turn, 8));
+            if (p.used) {
+                const mark = document.createElement('span');
+                mark.className = 'used-mark';
+                mark.textContent = '✓';
+                pieceCard.appendChild(mark);
+            }
 
-            pieceBox.addEventListener('click', () => {
+            const shape = (isSelected && this.currentBlokusShape) ? this.currentBlokusShape : p.coords;
+            pieceCard.appendChild(this.renderMiniPolyominoSVG(shape, engine.turn, 9));
+
+            pieceCard.addEventListener('click', () => {
+                if (p.used) return;
                 this.selectedBlokusPieceId = p.id;
                 this.currentBlokusShape = BlokusEngine.normalize(p.coords);
                 window.sounds.playPing();
+                this.showToast(`🎯 已選擇 ${p.size} 格方塊 (ID: ${p.id + 1})`, 1000);
                 this.renderCurrentBoard();
             });
 
-            trayEl.appendChild(pieceBox);
+            gridContainer.appendChild(pieceCard);
         });
-        this.dom.boardEl.appendChild(trayEl);
+        this.dom.boardEl.appendChild(gridContainer);
 
         // Update scores
         if (engine.scores) {
