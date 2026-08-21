@@ -17,46 +17,73 @@
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif; user-select: none; -webkit-tap-highlight-color: transparent; }
-        body { background: var(--bg-color); color: var(--text-main); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+        html, body { width: 100%; max-width: 100vw; overflow-x: hidden; height: 100vh; background: var(--bg-color); color: var(--text-main); display: flex; flex-direction: column; }
 
         /* ========================================= */
-        /* TWO-ROW COMPACT TOP HEADER                */
+        /* TWO-ROW COMPACT TOP HEADER (NO OVERFLOW)  */
         /* ========================================= */
         header.app-header {
+            width: 100%;
+            max-width: 100vw;
+            box-sizing: border-box;
             background: linear-gradient(180deg, #152135 0%, #0d1624 100%);
             border-bottom: 1.5px solid var(--border);
-            padding: 8px 12px;
+            padding: 6px 10px;
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 5px;
             z-index: 100;
             box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+            overflow-x: hidden;
         }
 
+        /* Row 1: Logo & Compact Controls */
         .header-top-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 8px;
+            width: 100%;
+            gap: 4px;
         }
         .logo {
             display: flex;
             align-items: center;
-            gap: 6px;
-            font-size: 1.15rem;
+            gap: 4px;
+            font-size: 1.05rem;
             font-weight: 900;
             color: #fef08a;
             text-shadow: 0 0 10px rgba(251, 191, 36, 0.4);
             white-space: nowrap;
             flex-shrink: 0;
         }
-        .header-tools { display: flex; gap: 6px; flex-shrink: 0; }
+        .header-tools {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+            flex-shrink: 1;
+            min-width: 0;
+        }
 
-        button, select {
-            background: #1c2b42; color: #f1f5f9; border: 1px solid var(--border);
-            padding: 5px 9px; border-radius: 7px; font-size: 0.78rem; font-weight: 700;
-            cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 4px;
+        .tool-select {
+            background: #1c2b42;
+            color: #f1f5f9;
+            border: 1px solid var(--border);
+            padding: 4px 6px;
+            border-radius: 6px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            cursor: pointer;
+            outline: none;
+            max-width: 100px;
+            text-overflow: ellipsis;
             white-space: nowrap;
+        }
+
+        button {
+            background: #1c2b42; color: #f1f5f9; border: 1px solid var(--border);
+            padding: 4px 7px; border-radius: 6px; font-size: 0.72rem; font-weight: 700;
+            cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 2px;
+            white-space: nowrap; flex-shrink: 0;
         }
         button:active { transform: scale(0.95); }
         button.primary { background: linear-gradient(135deg, #0284c7, #0369a1); border-color: #38bdf8; }
@@ -66,31 +93,33 @@
         .header-scoreboard-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 8px;
+            gap: 6px;
+            width: 100%;
         }
         .player-card {
             background: #090f1a;
             border: 1.5px solid #18253a;
-            border-radius: 9px;
-            padding: 5px 8px;
+            border-radius: 8px;
+            padding: 4px 6px;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             transition: all 0.2s;
+            min-width: 0;
         }
         .player-card.active.red {
             border-color: #ef4444;
             background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), #090f1a);
-            box-shadow: 0 0 12px rgba(239, 68, 68, 0.35);
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.35);
         }
         .player-card.active.blue {
             border-color: #3b82f6;
             background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), #090f1a);
-            box-shadow: 0 0 12px rgba(59, 130, 246, 0.35);
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.35);
         }
 
         .player-badge-icon {
-            width: 26px; height: 26px; border-radius: 7px;
+            width: 24px; height: 24px; border-radius: 6px;
             display: flex; align-items: center; justify-content: center;
             flex-shrink: 0;
         }
@@ -100,13 +129,13 @@
         .player-info { flex: 1; min-width: 0; }
         .player-title-line {
             display: flex; justify-content: space-between; align-items: center;
-            font-size: 0.72rem; font-weight: 800;
+            font-size: 0.68rem; font-weight: 800;
         }
         .player-title-line.red { color: #fca5a5; }
         .player-title-line.blue { color: #93c5fd; }
         .player-turn-indicator {
-            font-size: 0.62rem; background: #f59e0b; color: #000;
-            padding: 1px 4px; border-radius: 5px; font-weight: 900;
+            font-size: 0.58rem; background: #f59e0b; color: #000;
+            padding: 1px 3px; border-radius: 4px; font-weight: 900;
             animation: pulseTurn 1s infinite alternate;
         }
         @keyframes pulseTurn {
@@ -116,9 +145,9 @@
 
         .player-stats-line {
             display: flex; justify-content: space-between;
-            font-size: 0.78rem; font-weight: 700; margin-top: 1px; color: #cbd5e1;
+            font-size: 0.72rem; font-weight: 700; margin-top: 1px; color: #cbd5e1;
         }
-        .score-num { font-size: 0.92rem; font-weight: 900; color: #fff; }
+        .score-num { font-size: 0.85rem; font-weight: 900; color: #fff; }
 
         /* ========================================= */
         /* INFINITE MAP CANVAS                       */
@@ -134,6 +163,8 @@
             background-size: 100% 100%, 50px 50px, 50px 50px;
             overflow: hidden;
             cursor: grab;
+            width: 100%;
+            max-width: 100vw;
         }
         #viewport:active { cursor: grabbing; }
 
@@ -148,7 +179,6 @@
         .map-tile {
             position: absolute;
             width: 100px; height: 100px;
-            /* Seamless connection with neighbor tiles */
             transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
         .map-tile.just-placed {
@@ -161,7 +191,7 @@
             100% { transform: scale(1); }
         }
 
-        /* 3D Wooden Meeples on Map */
+        /* 3D Wooden Meeples */
         .meeple-on-map {
             position: absolute;
             width: 32px; height: 32px;
@@ -212,12 +242,12 @@
             z-index: 500;
             box-shadow: 0 14px 35px rgba(0,0,0,0.85);
             animation: tileDrop 0.25s;
-            min-width: 220px;
+            min-width: 200px;
         }
-        .meeple-picker-title { font-size: 0.82rem; font-weight: 800; color: var(--accent-gold); text-align: center; }
-        .meeple-btn-group { display: flex; flex-direction: column; gap: 6px; }
+        .meeple-picker-title { font-size: 0.8rem; font-weight: 800; color: var(--accent-gold); text-align: center; }
+        .meeple-btn-group { display: flex; flex-direction: column; gap: 5px; }
         .meeple-choice-btn {
-            padding: 7px 12px; font-size: 0.8rem; border-radius: 8px;
+            padding: 6px 10px; font-size: 0.78rem; border-radius: 8px;
             background: #1e293b; border: 1px solid var(--border); color: #fff;
             display: flex; align-items: center; justify-content: space-between;
         }
@@ -242,40 +272,40 @@
         /* Bottom Floating HUD */
         .hud-overlay {
             position: absolute;
-            bottom: 14px; left: 50%;
+            bottom: 12px; left: 50%;
             transform: translateX(-50%);
             background: rgba(17, 26, 42, 0.96);
             backdrop-filter: blur(14px);
             border: 1.5px solid var(--border);
-            border-radius: 18px;
-            padding: 8px 14px;
-            display: flex; align-items: center; gap: 14px;
+            border-radius: 16px;
+            padding: 8px 12px;
+            display: flex; align-items: center; gap: 12px;
             box-shadow: 0 10px 35px rgba(0,0,0,0.75);
-            z-index: 100; max-width: 94%;
+            z-index: 100; max-width: 95%; width: auto;
         }
         .current-tile-preview {
-            width: 76px; height: 76px;
-            border-radius: 10px; background: #0f172a;
+            width: 72px; height: 72px;
+            border-radius: 8px; background: #0f172a;
             box-shadow: inset 0 2px 5px rgba(0,0,0,0.6), 0 4px 12px rgba(0,0,0,0.5);
             display: flex; align-items: center; justify-content: center;
             overflow: hidden; flex-shrink: 0;
         }
         .tile-rotator { width: 100%; height: 100%; transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
-        .hud-info { display: flex; flex-direction: column; gap: 3px; }
-        .hud-title { font-size: 0.9rem; font-weight: 800; color: #fff; }
-        .hud-desc { font-size: 0.72rem; color: var(--text-muted); }
-        .hud-actions { display: flex; gap: 6px; margin-top: 3px; }
+        .hud-info { display: flex; flex-direction: column; gap: 2px; }
+        .hud-title { font-size: 0.85rem; font-weight: 800; color: #fff; }
+        .hud-desc { font-size: 0.7rem; color: var(--text-muted); }
+        .hud-actions { display: flex; gap: 6px; margin-top: 2px; }
 
         /* Floating Zoom Controls */
         .zoom-controls {
-            position: absolute; right: 14px; bottom: 110px;
+            position: absolute; right: 12px; bottom: 105px;
             display: flex; flex-direction: column; gap: 6px; z-index: 90;
         }
         .zoom-btn {
-            width: 40px; height: 40px;
+            width: 38px; height: 38px;
             background: rgba(24, 36, 56, 0.92);
             border: 1.5px solid var(--border); border-radius: 50%;
-            color: #fff; font-size: 1.2rem; font-weight: 900;
+            color: #fff; font-size: 1.15rem; font-weight: 900;
             display: flex; align-items: center; justify-content: center;
             box-shadow: 0 6px 14px rgba(0,0,0,0.5);
         }
@@ -290,27 +320,27 @@
         .modal.hidden { display: none; }
         .modal-card {
             background: #131d2e; border: 1.5px solid var(--border);
-            border-radius: 18px; padding: 20px; max-width: 580px; width: 100%;
-            max-height: 85vh; display: flex; flex-direction: column; gap: 14px;
+            border-radius: 18px; padding: 18px; max-width: 580px; width: 100%;
+            max-height: 85vh; display: flex; flex-direction: column; gap: 12px;
         }
         .gallery-grid {
-            display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
-            gap: 10px; overflow-y: auto; padding: 4px; max-height: 60vh;
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+            gap: 8px; overflow-y: auto; padding: 4px; max-height: 60vh;
         }
         .gallery-item {
             background: #0b1320; border: 1.5px solid var(--border);
-            border-radius: 10px; padding: 8px; display: flex; flex-direction: column;
-            align-items: center; gap: 6px; cursor: pointer; transition: all 0.15s;
+            border-radius: 8px; padding: 6px; display: flex; flex-direction: column;
+            align-items: center; gap: 4px; cursor: pointer; transition: all 0.15s;
         }
         .gallery-item:hover { transform: scale(1.08); border-color: var(--accent); background: #1a273d; }
-        .gallery-item-name { font-size: 0.68rem; color: var(--text-muted); text-align: center; font-weight: 700; }
+        .gallery-item-name { font-size: 0.65rem; color: var(--text-muted); text-align: center; font-weight: 700; }
 
         /* Toast */
         #toast {
-            position: fixed; top: 20px; left: 50%;
+            position: fixed; top: 16px; left: 50%;
             transform: translateX(-50%) translateY(-100px);
-            background: #0284c7; color: #fff; padding: 8px 18px;
-            border-radius: 20px; font-size: 0.85rem; font-weight: 700;
+            background: #0284c7; color: #fff; padding: 7px 16px;
+            border-radius: 20px; font-size: 0.82rem; font-weight: 700;
             box-shadow: 0 4px 18px rgba(0,0,0,0.5); z-index: 2000;
             transition: transform 0.3s;
         }
@@ -321,31 +351,32 @@
 
 <div id="toast"></div>
 
-<!-- TWO-ROW TOP HEADER -->
+<!-- TWO-ROW TOP HEADER (COMPACT 100VW) -->
 <header class="app-header">
-    <!-- Row 1: Short Logo & Action Buttons -->
+    <!-- Row 1: Logo & Tools -->
     <div class="header-top-row">
         <div class="logo">
             <span>🏰</span>
             <span>卡卡頌</span>
         </div>
         <div class="header-tools">
-            <select id="theme-selector" onchange="changeMapTheme(this.value)" style="padding: 4px 6px;">
-                <option value="classic">🎨 典藏桌遊手繪風</option>
-                <option value="3d_tactile">🏰 3D 立體浮雕風</option>
-                <option value="vibrant">🌲 翠綠莊園風</option>
+            <select id="theme-selector" class="tool-select" onchange="changeMapTheme(this.value)">
+                <option value="classic">🌿 經典翠綠</option>
+                <option value="parchment">📜 羊皮復古</option>
+                <option value="autumn">🍂 金秋豐收</option>
+                <option value="winter">❄️ 冰雪王國</option>
             </select>
-            <button class="gold-btn" onclick="generatePresetKingdom('prosperous')">✨ 範例王國</button>
+            <button class="gold-btn" onclick="generatePresetKingdom('prosperous')">✨ 範例</button>
             <button onclick="toggleGalleryModal()">📚 圖鑑</button>
             <button onclick="resetGame()">🔄 重設</button>
         </div>
     </div>
 
-    <!-- Row 2: Player Scoreboard & Meeples Remaining -->
+    <!-- Row 2: Player Status Cards -->
     <div class="header-scoreboard-row">
         <div id="p1-score-pill" class="player-card active red">
             <div class="player-badge-icon red">
-                <svg viewBox="0 0 100 100" width="18" height="18">
+                <svg viewBox="0 0 100 100" width="16" height="16">
                     <path d="M 50 14 C 58 14 62 19 62 26 C 62 31 59 34 55 36 L 72 46 C 76 48 76 53 72 56 L 64 63 L 60 56 L 60 88 L 40 88 L 40 56 L 36 63 L 28 56 C 24 53 24 48 28 46 L 45 36 C 41 34 38 31 38 26 C 38 19 42 14 50 14 Z" fill="#fff" />
                 </svg>
             </div>
@@ -363,7 +394,7 @@
 
         <div id="p2-score-pill" class="player-card blue">
             <div class="player-badge-icon blue">
-                <svg viewBox="0 0 100 100" width="18" height="18">
+                <svg viewBox="0 0 100 100" width="16" height="16">
                     <path d="M 50 14 C 58 14 62 19 62 26 C 62 31 59 34 55 36 L 72 46 C 76 48 76 53 72 56 L 64 63 L 60 56 L 60 88 L 40 88 L 40 56 L 36 63 L 28 56 C 24 53 24 48 28 46 L 45 36 C 41 34 38 31 38 26 C 38 19 42 14 50 14 Z" fill="#fff" />
                 </svg>
             </div>
@@ -404,11 +435,11 @@
         <div class="hud-info">
             <div id="hud-tile-name" class="hud-title">古道林地 (Road)</div>
             <div class="hud-desc">
-                剩餘牌堆: <b id="deck-count-text">71/72</b> 張 ｜ 點擊地圖黃色 <b>[➕]</b> 拼放
+                剩餘: <b id="deck-count-text">71/72</b> ｜ 點擊黃色 <b>[➕]</b> 拼放
             </div>
             <div class="hud-actions">
-                <button class="primary" onclick="rotateCurrentTile()">🔄 旋轉 90°</button>
-                <button onclick="drawRandomTile()">🎲 抽新板塊</button>
+                <button class="primary" onclick="rotateCurrentTile()">🔄 旋轉</button>
+                <button onclick="drawRandomTile()">🎲 抽牌</button>
             </div>
         </div>
     </div>
@@ -418,10 +449,10 @@
 <div id="gallery-modal" class="modal hidden" onclick="if(event.target === this) toggleGalleryModal();">
     <div class="modal-card">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h2 style="font-size: 1.15rem; font-weight: 800; color: var(--accent-gold);">📜 24 種歐式經典板塊原型圖鑑</h2>
+            <h2 style="font-size: 1.1rem; font-weight: 800; color: var(--accent-gold);">📜 24 種歐式板塊圖鑑</h2>
             <button onclick="toggleGalleryModal()">✕ 關閉</button>
         </div>
-        <p style="font-size: 0.8rem; color: var(--text-muted);">
+        <p style="font-size: 0.78rem; color: var(--text-muted);">
             點擊任意板塊即可將其切換為「當前手牌」，在無限地圖上直接拼放！
         </p>
         <div id="gallery-grid" class="gallery-grid">
@@ -495,15 +526,68 @@
     const audio = new SoundFX();
 
     // ==========================================
-    // 🎨 SEAMLESS, HIGH-AESTHETIC CARCASSONNE SVG
+    // 🎨 4 DRAMATICALLY DISTINCT MAP THEMES
     // ==========================================
-    let currentMapTheme = 'classic'; // 'classic' | '3d_tactile' | 'vibrant'
+    let currentMapTheme = 'classic'; // 'classic' | 'parchment' | 'autumn' | 'winter'
+
+    const THEME_PRESETS = {
+        classic: {
+            name: '經典翠綠',
+            grassGrad: ['#559938', '#427d28', '#34681e'],
+            wallGrad: ['#94a3b8', '#64748b', '#475569'],
+            wallBorder: '#334155',
+            roofGrad: ['#f97316', '#ea580c', '#9a3412'],
+            roadBase: '#8c6d3b',
+            roadSurface: '#eedaa2',
+            treeFoliage: '#2d5e1a',
+            decorations: 'sheep',
+            bgTint: '#060910'
+        },
+        parchment: {
+            name: '羊皮復古',
+            grassGrad: ['#ded1af', '#cbbb94', '#b3a178'],
+            wallGrad: ['#8f8274', '#706456', '#52473b'],
+            wallBorder: '#3e3428',
+            roofGrad: ['#b87333', '#8b4513', '#5c2c0e'],
+            roadBase: '#6e5e4a',
+            roadSurface: '#f5eedb',
+            treeFoliage: '#596342',
+            decorations: 'vintage',
+            bgTint: '#1c1712'
+        },
+        autumn: {
+            name: '金秋豐收',
+            grassGrad: ['#c68a26', '#a16c19', '#7e500e'],
+            wallGrad: ['#7d7265', '#5a5045', '#3d342b'],
+            wallBorder: '#2e261e',
+            roofGrad: ['#dc2626', '#b91c1c', '#7f1d1d'],
+            roadBase: '#5e431f',
+            roadSurface: '#fef08a',
+            treeFoliage: '#c2410c',
+            decorations: 'hay',
+            bgTint: '#181109'
+        },
+        winter: {
+            name: '冰雪王國',
+            grassGrad: ['#e2e8f0', '#cbd5e1', '#94a3b8'],
+            wallGrad: ['#64748b', '#475569', '#334155'],
+            wallBorder: '#1e293b',
+            roofGrad: ['#38bdf8', '#0284c7', '#0369a1'],
+            roadBase: '#475569',
+            roadSurface: '#f1f5f9',
+            treeFoliage: '#1e3a5f',
+            decorations: 'snow',
+            bgTint: '#09101d'
+        }
+    };
 
     function changeMapTheme(newTheme) {
         currentMapTheme = newTheme;
+        const preset = THEME_PRESETS[newTheme] || THEME_PRESETS.classic;
+        document.getElementById('viewport').style.background = preset.bgTint;
         renderWorld();
         audio.playSnap();
-        showToast(`🎨 已切換為【${newTheme === 'classic' ? '典藏桌遊手繪風' : newTheme === '3d_tactile' ? '3D 立體浮雕風' : '翠綠莊園風'}】！`);
+        showToast(`🎨 已切換為【${preset.name}】風格！`);
     }
 
     const TILE_DEFS = {
@@ -533,131 +617,116 @@
         'X': { name: '水井十字路口', edges: ['R','R','R','R'], roadType: 'crossroad' }
     };
 
-    function renderTileSVG(typeKey, rotation = 0, size = 100) {
+    function renderTileSVG(typeKey, rotation = 0, size = 100, tileUid = 'main') {
         const def = TILE_DEFS[typeKey] || TILE_DEFS['U'];
+        const th = THEME_PRESETS[currentMapTheme] || THEME_PRESETS.classic;
+
         let svg = `<svg viewBox="0 0 100 100" width="${size}" height="${size}" style="transform: rotate(${rotation * 90}deg);">`;
         
-        // Theme Colors
-        let grass1 = '#4f8e32', grass2 = '#3e7525', grass3 = '#32601c';
-        let wall1 = '#94a3b8', wall2 = '#64748b', wall3 = '#475569';
-        let roadBase = '#8c6d3b', roadSurface = '#eedaa2';
-
-        if (currentMapTheme === '3d_tactile') {
-            grass1 = '#47852c'; grass2 = '#366920'; grass3 = '#274e17';
-            wall1 = '#a8b8cc'; wall2 = '#5d6f85'; wall3 = '#384659';
-            roadBase = '#745426'; roadSurface = '#e8d197';
-        } else if (currentMapTheme === 'vibrant') {
-            grass1 = '#5ea83b'; grass2 = '#498c2c'; grass3 = '#386f21';
-            wall1 = '#9cb3cb'; wall2 = '#6985a3'; wall3 = '#48627e';
-            roadBase = '#99763e'; roadSurface = '#f7e7be';
-        }
-
         svg += `
             <defs>
-                <linearGradient id="grassG_${typeKey}" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stop-color="${grass1}" />
-                    <stop offset="50%" stop-color="${grass2}" />
-                    <stop offset="100%" stop-color="${grass3}" />
+                <linearGradient id="grass_${tileUid}" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="${th.grassGrad[0]}" />
+                    <stop offset="50%" stop-color="${th.grassGrad[1]}" />
+                    <stop offset="100%" stop-color="${th.grassGrad[2]}" />
                 </linearGradient>
-                <linearGradient id="wallG" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stop-color="${wall1}" />
-                    <stop offset="60%" stop-color="${wall2}" />
-                    <stop offset="100%" stop-color="${wall3}" />
+                <linearGradient id="wall_${tileUid}" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="${th.wallGrad[0]}" />
+                    <stop offset="60%" stop-color="${th.wallGrad[1]}" />
+                    <stop offset="100%" stop-color="${th.wallGrad[2]}" />
                 </linearGradient>
-                <linearGradient id="roofG" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stop-color="#f97316" />
-                    <stop offset="50%" stop-color="#ea580c" />
-                    <stop offset="100%" stop-color="#9a3412" />
+                <linearGradient id="roof_${tileUid}" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="${th.roofGrad[0]}" />
+                    <stop offset="50%" stop-color="${th.roofGrad[1]}" />
+                    <stop offset="100%" stop-color="${th.roofGrad[2]}" />
                 </linearGradient>
-                <filter id="wallShadow" x="-20%" y="-20%" width="140%" height="140%">
+                <filter id="shadow_${tileUid}" x="-20%" y="-20%" width="140%" height="140%">
                     <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#000" flood-opacity="0.45" />
                 </filter>
             </defs>
         `;
 
-        // 1. Seamless Pasture Grassland (fills full 100x100 so adjacent tiles merge seamlessly)
-        svg += `<rect width="100" height="100" fill="url(#grassG_${typeKey})" />`;
+        // 1. Seamless Pasture Grassland
+        svg += `<rect width="100" height="100" fill="url(#grass_${tileUid})" />`;
         
-        // Micro-decorations: Trees, bushes, grazing sheep 🐑, wildflower meadows
-        svg += `
-            <!-- Deciduous & Pine Trees -->
-            <g transform="translate(18, 18)">
-                <ellipse cx="1" cy="2" rx="5" ry="3.5" fill="#1b360f" opacity="0.4" />
-                <circle cx="0" cy="0" r="4.5" fill="#2d5e1a" />
-                <circle cx="3" cy="-1" r="3.5" fill="#3e7a25" />
-                <circle cx="-2" cy="1" r="3" fill="#4d9430" />
-            </g>
-            <g transform="translate(82, 80)">
-                <ellipse cx="1" cy="2" rx="5" ry="3.5" fill="#1b360f" opacity="0.4" />
-                <circle cx="0" cy="0" r="4.5" fill="#2d5e1a" />
-                <circle cx="-3" cy="-1" r="3.5" fill="#3e7a25" />
-            </g>
-            <!-- Meadow Grazing Sheep 🐑 -->
-            <g transform="translate(24, 78)">
-                <ellipse cx="0" cy="0" rx="3.5" ry="2.5" fill="#f8fafc" />
-                <circle cx="3.2" cy="-1" r="1.5" fill="#334155" />
-                <circle cx="-2.5" cy="0.5" r="1" fill="#e2e8f0" />
-            </g>
-            <!-- Meadow Wildflowers -->
-            <circle cx="82" cy="22" r="1.3" fill="#fef08a" />
-            <circle cx="85" cy="25" r="1.1" fill="#f43f5e" />
-        `;
+        // Micro-decorations depending on theme
+        if (th.decorations === 'sheep') {
+            svg += `
+                <g transform="translate(18, 18)"><circle cx="0" cy="0" r="4.5" fill="${th.treeFoliage}" /><circle cx="3" cy="-1" r="3.5" fill="${th.treeFoliage}" opacity="0.8" /></g>
+                <g transform="translate(82, 80)"><circle cx="0" cy="0" r="4.5" fill="${th.treeFoliage}" /></g>
+                <g transform="translate(24, 78)"><ellipse cx="0" cy="0" rx="3.5" ry="2.5" fill="#f8fafc" /><circle cx="3" cy="-1" r="1.5" fill="#334155" /></g>
+                <circle cx="82" cy="22" r="1.4" fill="#fef08a" /><circle cx="85" cy="25" r="1.1" fill="#f43f5e" />
+            `;
+        } else if (th.decorations === 'hay') {
+            svg += `
+                <g transform="translate(18, 18)"><circle cx="0" cy="0" r="5" fill="${th.treeFoliage}" /></g>
+                <g transform="translate(26, 78)"><ellipse cx="0" cy="0" rx="4" ry="3" fill="#fef08a" stroke="#ca8a04" stroke-width="0.8" /></g>
+                <circle cx="82" cy="78" r="4.5" fill="${th.treeFoliage}" />
+            `;
+        } else if (th.decorations === 'snow') {
+            svg += `
+                <g transform="translate(18, 18)"><polygon points="0,-6 -5,4 5,4" fill="#1e3a5f" /><polygon points="0,-7 -3,-2 3,-2" fill="#ffffff" /></g>
+                <g transform="translate(82, 80)"><polygon points="0,-6 -5,4 5,4" fill="#1e3a5f" /><polygon points="0,-7 -3,-2 3,-2" fill="#ffffff" /></g>
+                <ellipse cx="25" cy="80" rx="4" ry="2" fill="#93c5fd" opacity="0.4" />
+            `;
+        } else {
+            svg += `
+                <g transform="translate(18, 18)"><circle cx="0" cy="0" r="4.5" fill="${th.treeFoliage}" /></g>
+                <g transform="translate(82, 80)"><circle cx="0" cy="0" r="4.5" fill="${th.treeFoliage}" /></g>
+                <line x1="20" y1="75" x2="32" y2="75" stroke="#5c4d3c" stroke-width="1.2" stroke-dasharray="2 2" />
+            `;
+        }
 
-        // 2. High-Detail Castle / Fortress Walls with Terracotta House Roofs & 3D Shadow
+        // 2. High-Detail Castle Walls & Townhouses
         if (def.cityType === 'north') {
-            svg += `<path d="M 0 0 L 100 0 C 80 44, 20 44, 0 0 Z" fill="url(#wallG)" stroke="#334155" stroke-width="2.2" filter="url(#wallShadow)" />`;
-            // Castle Battlements / Crenellations
+            svg += `<path d="M 0 0 L 100 0 C 80 44, 20 44, 0 0 Z" fill="url(#wall_${tileUid})" stroke="${th.wallBorder}" stroke-width="2.2" filter="url(#shadow_${tileUid})" />`;
             svg += `<path d="M 8 9 L 18 9 L 18 2 M 32 9 L 42 9 L 42 2 M 58 9 L 68 9 L 68 2 M 82 9 L 92 9 L 92 2" stroke="#1e293b" stroke-width="2" fill="none" />`;
-            // Half-timbered Townhouses inside city
             svg += `
                 <g transform="translate(32, 12)">
                     <rect x="0" y="8" width="18" height="12" fill="#f8fafc" stroke="#475569" stroke-width="1" />
-                    <polygon points="-2,8 9,-2 20,8" fill="url(#roofG)" stroke="#7c2d12" stroke-width="1" />
+                    <polygon points="-2,8 9,-2 20,8" fill="url(#roof_${tileUid})" stroke="#7c2d12" stroke-width="1" />
                     <rect x="13" y="-4" width="3" height="6" fill="#78350f" />
                 </g>
             `;
         } else if (def.cityType === 'full') {
-            svg += `<rect width="100" height="100" fill="url(#wallG)" stroke="#334155" stroke-width="2.5" />`;
+            svg += `<rect width="100" height="100" fill="url(#wall_${tileUid})" stroke="${th.wallBorder}" stroke-width="2.5" />`;
             svg += `<rect x="18" y="18" width="64" height="64" fill="#334155" rx="4" />`;
-            // Inner Citadel Quad
             svg += `
                 <g transform="translate(24, 24)">
                     <rect x="4" y="20" width="44" height="26" fill="#e2e8f0" stroke="#475569" stroke-width="1.2" />
-                    <polygon points="0,20 26,2 52,20" fill="url(#roofG)" stroke="#7c2d12" stroke-width="1.5" />
+                    <polygon points="0,20 26,2 52,20" fill="url(#roof_${tileUid})" stroke="#7c2d12" stroke-width="1.5" />
                     <rect x="38" y="2" width="5" height="8" fill="#78350f" />
-                    <!-- Arched Castle Gate -->
                     <path d="M 20 46 L 32 46 L 32 30 C 32 24 20 24 20 30 Z" fill="#78350f" stroke="#451a03" stroke-width="1.5" />
                     <circle cx="29" cy="36" r="1" fill="#f59e0b" />
                 </g>
             `;
         } else if (def.cityType === 'corner') {
-            svg += `<path d="M 0 0 L 100 0 L 100 100 C 60 72, 28 40, 0 0 Z" fill="url(#wallG)" stroke="#334155" stroke-width="2.2" filter="url(#wallShadow)" />`;
-            // 2 Half-timbered Townhouses
+            svg += `<path d="M 0 0 L 100 0 L 100 100 C 60 72, 28 40, 0 0 Z" fill="url(#wall_${tileUid})" stroke="${th.wallBorder}" stroke-width="2.2" filter="url(#shadow_${tileUid})" />`;
             svg += `
                 <g transform="translate(42, 16)">
                     <rect x="0" y="8" width="16" height="10" fill="#f8fafc" stroke="#475569" stroke-width="1" />
-                    <polygon points="-2,8 8,0 18,8" fill="url(#roofG)" stroke="#7c2d12" stroke-width="1" />
+                    <polygon points="-2,8 8,0 18,8" fill="url(#roof_${tileUid})" stroke="#7c2d12" stroke-width="1" />
                 </g>
                 <g transform="translate(68, 44)">
                     <rect x="0" y="8" width="16" height="10" fill="#f8fafc" stroke="#475569" stroke-width="1" />
-                    <polygon points="-2,8 8,0 18,8" fill="url(#roofG)" stroke="#7c2d12" stroke-width="1" />
+                    <polygon points="-2,8 8,0 18,8" fill="url(#roof_${tileUid})" stroke="#7c2d12" stroke-width="1" />
                 </g>
             `;
         } else if (def.cityType === 'three-sides') {
-            svg += `<path d="M 0 0 L 100 0 L 100 100 C 80 50, 65 68, 50 68 C 35 68, 20 50, 0 100 Z" fill="url(#wallG)" stroke="#334155" stroke-width="2.2" filter="url(#wallShadow)" />`;
+            svg += `<path d="M 0 0 L 100 0 L 100 100 C 80 50, 65 68, 50 68 C 35 68, 20 50, 0 100 Z" fill="url(#wall_${tileUid})" stroke="${th.wallBorder}" stroke-width="2.2" filter="url(#shadow_${tileUid})" />`;
             svg += `
                 <g transform="translate(30, 22)">
                     <rect x="4" y="12" width="32" height="18" fill="#e2e8f0" stroke="#475569" stroke-width="1" />
-                    <polygon points="0,12 20,-2 40,12" fill="url(#roofG)" stroke="#7c2d12" stroke-width="1.2" />
+                    <polygon points="0,12 20,-2 40,12" fill="url(#roof_${tileUid})" stroke="#7c2d12" stroke-width="1.2" />
                     <rect x="30" y="-2" width="4" height="6" fill="#78350f" />
                 </g>
             `;
         } else if (def.cityType === 'bridge') {
-            svg += `<path d="M 0 28 C 40 28, 60 28, 100 28 L 100 72 C 60 72, 40 72, 0 72 Z" fill="url(#wallG)" stroke="#334155" stroke-width="2.2" filter="url(#wallShadow)" />`;
+            svg += `<path d="M 0 28 C 40 28, 60 28, 100 28 L 100 72 C 60 72, 40 72, 0 72 Z" fill="url(#wall_${tileUid})" stroke="${th.wallBorder}" stroke-width="2.2" filter="url(#shadow_${tileUid})" />`;
             svg += `
                 <g transform="translate(36, 36)">
                     <rect x="0" y="8" width="28" height="14" fill="#e2e8f0" stroke="#475569" stroke-width="1" />
-                    <polygon points="-2,8 14,-2 30,8" fill="url(#roofG)" stroke="#7c2d12" stroke-width="1.2" />
+                    <polygon points="-2,8 14,-2 30,8" fill="url(#roof_${tileUid})" stroke="#7c2d12" stroke-width="1.2" />
                 </g>
             `;
         }
@@ -673,31 +742,30 @@
             `;
         }
 
-        // 3. Ancient Cobblestone Paved Roads
+        // 3. Roads
         if (def.roadType === 'straight-v') {
-            svg += `<line x1="50" y1="0" x2="50" y2="100" stroke="${roadBase}" stroke-width="15" />`;
-            svg += `<line x1="50" y1="0" x2="50" y2="100" stroke="${roadSurface}" stroke-width="10" stroke-dasharray="5 2.5" />`;
+            svg += `<line x1="50" y1="0" x2="50" y2="100" stroke="${th.roadBase}" stroke-width="15" />`;
+            svg += `<line x1="50" y1="0" x2="50" y2="100" stroke="${th.roadSurface}" stroke-width="10" stroke-dasharray="5 2.5" />`;
         } else if (def.roadType === 'straight-h') {
-            svg += `<line x1="0" y1="50" x2="100" y2="50" stroke="${roadBase}" stroke-width="15" />`;
-            svg += `<line x1="0" y1="50" x2="100" y2="50" stroke="${roadSurface}" stroke-width="10" stroke-dasharray="5 2.5" />`;
+            svg += `<line x1="0" y1="50" x2="100" y2="50" stroke="${th.roadBase}" stroke-width="15" />`;
+            svg += `<line x1="0" y1="50" x2="100" y2="50" stroke="${th.roadSurface}" stroke-width="10" stroke-dasharray="5 2.5" />`;
         } else if (def.roadType === 'south-west') {
-            svg += `<path d="M 0 50 Q 50 50 50 100" stroke="${roadBase}" stroke-width="15" fill="none" />`;
-            svg += `<path d="M 0 50 Q 50 50 50 100" stroke="${roadSurface}" stroke-width="10" fill="none" stroke-dasharray="5 2.5" />`;
+            svg += `<path d="M 0 50 Q 50 50 50 100" stroke="${th.roadBase}" stroke-width="15" fill="none" />`;
+            svg += `<path d="M 0 50 Q 50 50 50 100" stroke="${th.roadSurface}" stroke-width="10" fill="none" stroke-dasharray="5 2.5" />`;
         } else if (def.roadType === 'east-south') {
-            svg += `<path d="M 100 50 Q 50 50 50 100" stroke="${roadBase}" stroke-width="15" fill="none" />`;
-            svg += `<path d="M 100 50 Q 50 50 50 100" stroke="${roadSurface}" stroke-width="10" fill="none" stroke-dasharray="5 2.5" />`;
+            svg += `<path d="M 100 50 Q 50 50 50 100" stroke="${th.roadBase}" stroke-width="15" fill="none" />`;
+            svg += `<path d="M 100 50 Q 50 50 50 100" stroke="${th.roadSurface}" stroke-width="10" fill="none" stroke-dasharray="5 2.5" />`;
         } else if (def.roadType === 'south') {
-            svg += `<line x1="50" y1="50" x2="50" y2="100" stroke="${roadBase}" stroke-width="15" />`;
-            svg += `<line x1="50" y1="50" x2="50" y2="100" stroke="${roadSurface}" stroke-width="10" stroke-dasharray="5 2.5" />`;
+            svg += `<line x1="50" y1="50" x2="50" y2="100" stroke="${th.roadBase}" stroke-width="15" />`;
+            svg += `<line x1="50" y1="50" x2="50" y2="100" stroke="${th.roadSurface}" stroke-width="10" stroke-dasharray="5 2.5" />`;
         } else if (def.roadType === 't-junction') {
-            svg += `<path d="M 0 50 L 100 50 M 50 50 L 50 100" stroke="${roadBase}" stroke-width="15" fill="none" />`;
-            svg += `<path d="M 0 50 L 100 50 M 50 50 L 50 100" stroke="${roadSurface}" stroke-width="10" fill="none" stroke-dasharray="5 2.5" />`;
-            svg += `<circle cx="50" cy="50" r="8" fill="${roadBase}" />`;
-            svg += `<circle cx="50" cy="50" r="5" fill="${roadSurface}" />`;
+            svg += `<path d="M 0 50 L 100 50 M 50 50 L 50 100" stroke="${th.roadBase}" stroke-width="15" fill="none" />`;
+            svg += `<path d="M 0 50 L 100 50 M 50 50 L 50 100" stroke="${th.roadSurface}" stroke-width="10" fill="none" stroke-dasharray="5 2.5" />`;
+            svg += `<circle cx="50" cy="50" r="8" fill="${th.roadBase}" />`;
+            svg += `<circle cx="50" cy="50" r="5" fill="${th.roadSurface}" />`;
         } else if (def.roadType === 'crossroad') {
-            svg += `<path d="M 0 50 L 100 50 M 50 0 L 50 100" stroke="${roadBase}" stroke-width="15" fill="none" />`;
-            svg += `<path d="M 0 50 L 100 50 M 50 0 L 50 100" stroke="${roadSurface}" stroke-width="10" fill="none" stroke-dasharray="5 2.5" />`;
-            // Medieval Stone Village Well
+            svg += `<path d="M 0 50 L 100 50 M 50 0 L 50 100" stroke="${th.roadBase}" stroke-width="15" fill="none" />`;
+            svg += `<path d="M 0 50 L 100 50 M 50 0 L 50 100" stroke="${th.roadSurface}" stroke-width="10" fill="none" stroke-dasharray="5 2.5" />`;
             svg += `
                 <g transform="translate(50, 50)">
                     <circle cx="0" cy="0" r="10" fill="#475569" stroke="#1e293b" stroke-width="1.8" />
@@ -708,29 +776,22 @@
             `;
         }
 
-        // 4. Romanesque Basilica Cathedral Monastery
+        // 4. Romanesque Cathedral Monastery
         if (def.hasMonastery) {
             svg += `
                 <g transform="translate(50, 48)">
-                    <!-- Pine and cypress trees -->
-                    <g transform="translate(-24, -8)"><circle cx="0" cy="0" r="6.5" fill="#1b4311" /><circle cx="2" cy="-2" r="4.5" fill="#2d6a1e" /></g>
-                    <g transform="translate(24, -8)"><circle cx="0" cy="0" r="6.5" fill="#1b4311" /><circle cx="-2" cy="-2" r="4.5" fill="#2d6a1e" /></g>
-                    <g transform="translate(-20, 18)"><circle cx="0" cy="0" r="5.5" fill="#1b4311" /><circle cx="1" cy="-1" r="3.5" fill="#2d6a1e" /></g>
-                    <g transform="translate(20, 18)"><circle cx="0" cy="0" r="5.5" fill="#1b4311" /><circle cx="-1" cy="-1" r="3.5" fill="#2d6a1e" /></g>
+                    <g transform="translate(-24, -8)"><circle cx="0" cy="0" r="6.5" fill="${th.treeFoliage}" /></g>
+                    <g transform="translate(24, -8)"><circle cx="0" cy="0" r="6.5" fill="${th.treeFoliage}" /></g>
+                    <g transform="translate(-20, 18)"><circle cx="0" cy="0" r="5.5" fill="${th.treeFoliage}" /></g>
+                    <g transform="translate(20, 18)"><circle cx="0" cy="0" r="5.5" fill="${th.treeFoliage}" /></g>
 
-                    <!-- Main Cathedral Nave -->
-                    <rect x="-18" y="-12" width="36" height="30" fill="#f1f5f9" stroke="#475569" stroke-width="1.8" rx="2" filter="url(#wallShadow)" />
-                    <!-- Rose Stained-Glass Window -->
+                    <rect x="-18" y="-12" width="36" height="30" fill="#f1f5f9" stroke="#475569" stroke-width="1.8" rx="2" filter="url(#shadow_${tileUid})" />
                     <circle cx="0" cy="0" r="4.5" fill="#38bdf8" stroke="#1e293b" stroke-width="1.2" />
                     <line x1="-4.5" y1="0" x2="4.5" y2="0" stroke="#1e293b" stroke-width="0.8" />
                     <line x1="0" y1="-4.5" x2="0" y2="4.5" stroke="#1e293b" stroke-width="0.8" />
                     
-                    <!-- Solid Oak Portico Door -->
                     <path d="M -5 18 L 5 18 L 5 8 C 5 5 -5 5 -5 8 Z" fill="#78350f" stroke="#451a03" stroke-width="1.2" />
-
-                    <!-- Red Terracotta Steeple Roof -->
-                    <polygon points="0,-26 -22,-10 22,-10" fill="url(#roofG)" stroke="#7c2d12" stroke-width="1.8" />
-                    <!-- Golden Spire Cross -->
+                    <polygon points="0,-26 -22,-10 22,-10" fill="url(#roof_${tileUid})" stroke="#7c2d12" stroke-width="1.8" />
                     <line x1="0" y1="-33" x2="0" y2="-26" stroke="#fbbf24" stroke-width="2.2" />
                     <line x1="-4" y1="-30" x2="4" y2="-30" stroke="#fbbf24" stroke-width="2.2" />
                 </g>
@@ -741,7 +802,6 @@
         return svg;
     }
 
-    // 3D Wooden Meeple
     function renderMeepleSVG(color = 'red') {
         const isRed = color === 'red';
         const gradId = isRed ? 'redMeepleG' : 'blueMeepleG';
@@ -913,7 +973,8 @@
             tileDiv.className = `map-tile ${key === justPlacedKey ? 'just-placed' : ''}`;
             tileDiv.style.left = `${gx * TILE_SIZE}px`;
             tileDiv.style.top = `${gy * TILE_SIZE}px`;
-            tileDiv.innerHTML = renderTileSVG(data.typeKey, data.rotation, TILE_SIZE);
+            const tileUid = `t_${gx}_${gy}`;
+            tileDiv.innerHTML = renderTileSVG(data.typeKey, data.rotation, TILE_SIZE, tileUid);
             worldEl.appendChild(tileDiv);
 
             if (data.meeple) {
@@ -1077,7 +1138,7 @@
     }
 
     function updateHUD() {
-        document.getElementById('hud-rotator').innerHTML = renderTileSVG(currentTile.typeKey, currentTile.rotation, 76);
+        document.getElementById('hud-rotator').innerHTML = renderTileSVG(currentTile.typeKey, currentTile.rotation, 72, 'hud_current');
         document.getElementById('hud-tile-name').textContent = TILE_DEFS[currentTile.typeKey].name;
     }
 
@@ -1142,7 +1203,7 @@
                 const item = document.createElement('div');
                 item.className = 'gallery-item';
                 item.innerHTML = `
-                    ${renderTileSVG(key, 0, 72)}
+                    ${renderTileSVG(key, 0, 68, `gal_${key}`)}
                     <div class="gallery-item-name">${def.name}</div>
                 `;
                 item.addEventListener('click', () => {
