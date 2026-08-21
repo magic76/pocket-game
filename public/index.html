@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#121826">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>機上離線棋藝盒 - Pocket Game Hub</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .checkers-pill-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 6px;
+        }
+        .checkers-pill {
+            flex: 1;
+            padding: 8px;
+            background: #0f172a;
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            color: var(--text-muted);
+            text-align: center;
+            font-size: 0.85rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .checkers-pill.active {
+            background: #38bdf8;
+            color: #0f172a;
+            border-color: #38bdf8;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <!-- Header -->
+    <header>
+        <div class="logo">
+            <span>✈️</span>
+            <span>口袋棋院 (5合1)</span>
+        </div>
+        <div class="header-actions">
+            <button class="icon-btn" onclick="window.sounds.toggleMute(); this.textContent = window.sounds.muted ? '🔇 靜音' : '🔊 音效';">
+                🔊 音效
+            </button>
+            <button class="icon-btn" onclick="window.app.showQRModal()">
+                📲 掃碼
+            </button>
+        </div>
+    </header>
+
+    <!-- Toast Notification -->
+    <div id="toast"></div>
+
+    <!-- VIEW 1: LOBBY -->
+    <main id="view-lobby" class="view">
+        <div class="hero-card">
+            <span class="hero-badge">✈️ 零網路・局域熱點連線</span>
+            <h1 class="hero-title">機上離線棋藝合集</h1>
+            <p class="hero-desc">開熱點讓朋友掃碼即玩，免裝任何 App！</p>
+        </div>
+
+        <div class="section-title">
+            <span>🎮 選擇遊戲（五合一）</span>
+        </div>
+
+        <!-- 5-Game Selection Grid -->
+        <div class="game-grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+            <!-- Game 1: Gomoku -->
+            <div id="card-gomoku" class="game-card selected" onclick="window.app.selectGame('gomoku')">
+                <div class="game-icon">🎯</div>
+                <div class="game-name">五子棋</div>
+                <div class="game-tag">15x15 經典</div>
+            </div>
+
+            <!-- Game 2: Reversi -->
+            <div id="card-reversi" class="game-card" onclick="window.app.selectGame('reversi')">
+                <div class="game-icon">⚪⚫</div>
+                <div class="game-name">黑白棋</div>
+                <div class="game-tag">8x8 翻轉</div>
+            </div>
+
+            <!-- Game 3: Xiangqi -->
+            <div id="card-xiangqi" class="game-card" onclick="window.app.selectGame('xiangqi')">
+                <div class="game-icon">🀄</div>
+                <div class="game-name">中國象棋</div>
+                <div class="game-tag">楚河漢界</div>
+            </div>
+
+            <!-- Game 4: Chess -->
+            <div id="card-chess" class="game-card" onclick="window.app.selectGame('chess')">
+                <div class="game-icon">♟️</div>
+                <div class="game-name">西洋棋</div>
+                <div class="game-tag">國際象棋</div>
+            </div>
+
+            <!-- Game 5: Chinese Checkers -->
+            <div id="card-checkers" class="game-card" style="grid-column: span 2;" onclick="window.app.selectGame('checkers')">
+                <div class="game-icon">⭐</div>
+                <div class="game-name">六角星跳棋 (波子棋)</div>
+                <div class="game-tag">支援 2人 / 3人 多段連跳</div>
+            </div>
+        </div>
+
+        <!-- Chinese Checkers Player Count Selector (shown when checkers is active) -->
+        <div id="checkers-count-box" class="action-box hidden" style="margin-bottom: 12px; padding: 12px;">
+            <label style="font-size: 0.85rem; font-weight: 700; color: var(--accent);">⭐ 跳棋人數配置</label>
+            <div class="checkers-pill-group">
+                <div class="checkers-pill active" data-count="2" onclick="window.app.setCheckersCount(2)">👥 2 人對戰 (180° 對攻)</div>
+                <div class="checkers-pill" data-count="3" onclick="window.app.setCheckersCount(3)">👥 3 人大亂鬥 (120° 三方)</div>
+            </div>
+        </div>
+
+        <div class="section-title">
+            <span>🕹️ 選擇模式</span>
+        </div>
+
+        <div class="mode-pills" style="margin-bottom: 14px;">
+            <div class="mode-pill active" data-mode="online" onclick="window.app.selectMode('online')">🌐 熱點連線</div>
+            <div class="mode-pill" data-mode="hotseat" onclick="window.app.selectMode('hotseat')">🪑 小桌板同機</div>
+            <div class="mode-pill" data-mode="ai" onclick="window.app.selectMode('ai')">🤖 離線 AI</div>
+        </div>
+
+        <div class="action-box">
+            <div class="form-group">
+                <label>您的玩家暱稱</label>
+                <input id="player-name-input" type="text" class="form-input" placeholder="輸入暱稱" maxlength="10">
+            </div>
+
+            <!-- Mode 1: Online -->
+            <div id="online-panel">
+                <button class="btn-primary" style="width: 100%; margin-bottom: 10px;" onclick="window.app.createOnlineRoom()">
+                    <span>✨ 建立新房間（我是房主）</span>
+                </button>
+                <div style="display: flex; gap: 8px;">
+                    <input id="room-id-input" type="number" class="form-input" placeholder="輸入 4 位數房號" style="flex: 1;">
+                    <button class="btn-secondary" onclick="window.app.joinOnlineRoom()" style="padding: 0 16px;">
+                        加入
+                    </button>
+                </div>
+            </div>
+
+            <!-- Mode 2: Hotseat -->
+            <div id="hotseat-panel" class="hidden">
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">
+                    💡 把手機平放在飛機小桌板上，方便同機圍坐輪流下子！
+                </p>
+                <button class="btn-primary" style="width: 100%;" onclick="window.app.startHotseatGame()">
+                    <span>🚀 開始同機對戰</span>
+                </button>
+            </div>
+
+            <!-- Mode 3: AI -->
+            <div id="ai-panel" class="hidden">
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">
+                    🤖 一個人坐飛機也不無聊！挑戰具有啟發式搜尋的離線 AI 引擎。
+                </p>
+                <button class="btn-primary" style="width: 100%;" onclick="window.app.startAIGame()">
+                    <span>⚔️ 開始挑戰 AI</span>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- VIEW 2: GAMEPLAY -->
+    <main id="view-game" class="view hidden">
+        <!-- Top Player Bar -->
+        <div id="top-player-bar" class="game-header">
+            <div class="player-tag">
+                <span id="top-player-name">⚪ 玩家二</span>
+            </div>
+            <div id="top-player-turn" class="turn-pill wait-turn">等待中</div>
+        </div>
+
+        <!-- Middle Player Bar (for 3-player Checkers) -->
+        <div id="mid-player-bar" class="game-header hidden" style="margin-bottom: 8px;">
+            <div class="player-tag">
+                <span id="mid-player-name">🟢 玩家三</span>
+            </div>
+            <div id="mid-player-turn" class="turn-pill wait-turn">等待中</div>
+        </div>
+
+        <!-- Scores bar for Reversi -->
+        <div id="scores-bar" class="scores-bar hidden" style="margin-bottom: 8px;">
+            <div class="score-item">
+                <span class="mini-stone black"></span>
+                <span>黑方: <span id="black-score">2</span></span>
+            </div>
+            <div class="score-item">
+                <span class="mini-stone white"></span>
+                <span>白方: <span id="white-score">2</span></span>
+            </div>
+        </div>
+
+        <!-- Game Title and Room ID -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <span id="game-title-text" style="font-weight: 700; font-size: 0.95rem; color: var(--accent);">棋盤</span>
+            <span id="room-badge-text" class="hero-badge" style="margin: 0;">房號: ----</span>
+        </div>
+
+        <!-- The Interactive Board Container -->
+        <div id="board-container" class="board-container square-board">
+            <div id="board" class="gomoku-board"></div>
+        </div>
+
+        <!-- Bottom Player Bar -->
+        <div class="game-header" style="margin-top: 8px;">
+            <div class="player-tag">
+                <span id="bottom-player-name">⚫ 玩家一</span>
+            </div>
+            <div id="bottom-player-turn" class="turn-pill active-turn">▶ 行棋中</div>
+        </div>
+
+        <!-- Quick Chat / Emojis -->
+        <div class="emoji-bar" style="margin-top: 8px;">
+            <button class="emoji-btn" onclick="window.app.sendReaction('🔥')">🔥</button>
+            <button class="emoji-btn" onclick="window.app.sendReaction('🤔')">🤔</button>
+            <button class="emoji-btn" onclick="window.app.sendReaction('😅')">😅</button>
+            <button class="emoji-btn" onclick="window.app.sendReaction('👍')">👍</button>
+            <button class="emoji-btn" onclick="window.app.sendReaction('👏')">👏</button>
+            <button class="emoji-btn" onclick="window.app.sendReaction('⚡')">⚡</button>
+        </div>
+
+        <!-- Bottom Controls -->
+        <div class="game-controls">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                <button class="btn-secondary" onclick="window.app.currentMode === 'online' ? window.app.requestOnlineRestart() : window.app.restartLocalGame()">
+                    🔄 重新開局
+                </button>
+                <button class="btn-secondary" onclick="window.app.leaveGame()">
+                    🚪 返回大廳
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- MODAL 1: QR CODE SHARING -->
+    <div id="qr-modal" class="modal-overlay hidden" onclick="if(event.target === this) window.app.hideModals();">
+        <div class="modal-card">
+            <h3 style="font-size: 1.25rem; font-weight: 800; margin-bottom: 6px;">📲 邀請朋友加入</h3>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">
+                請朋友連接您的 Wi-Fi 熱點後，開啟手機相機掃描下方 QR Code 即玩！
+            </p>
+            
+            <img id="qr-image" class="qr-image" src="" alt="QR Code">
+            
+            <div style="font-size: 0.85rem; color: var(--text-muted);">房間號碼</div>
+            <div id="qr-room-code" class="room-badge">----</div>
+
+            <div style="font-size: 0.8rem; color: #64748b; margin-top: 4px; word-break: break-all;" id="qr-url-text">
+                http://192.168.43.1:8080
+            </div>
+
+            <button class="btn-primary" style="width: 100%; margin-top: 14px;" onclick="window.app.hideModals()">
+                我知道了，開始遊戲
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL 2: GAME OVER / WIN -->
+    <div id="win-modal" class="modal-overlay hidden" onclick="if(event.target === this) window.app.hideModals();">
+        <div class="modal-card">
+            <h2 id="win-title" style="font-size: 1.5rem; font-weight: 800; margin-bottom: 8px;">🏆 獲勝！</h2>
+            <p id="win-desc" style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 18px;">
+                恭喜奪得本局勝利！
+            </p>
+            <div style="display: flex; gap: 8px;">
+                <button class="btn-primary" style="flex: 1;" onclick="window.app.currentMode === 'online' ? window.app.requestOnlineRestart() : window.app.restartLocalGame()">
+                    🔄 再來一局
+                </button>
+                <button class="btn-secondary" style="flex: 1;" onclick="window.app.leaveGame()">
+                    🚪 回大廳
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="js/audio.js"></script>
+<script src="js/gomoku.js"></script>
+<script src="js/reversi.js"></script>
+<script src="js/xiangqi.js"></script>
+<script src="js/chess.js"></script>
+<script src="js/checkers.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

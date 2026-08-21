@@ -1,0 +1,4 @@
+node_modules/
+.server.pid
+*.log
+.DS_Store

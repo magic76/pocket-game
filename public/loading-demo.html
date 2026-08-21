@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI Loading UI 方案比較與互動演示</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --accent: #38bdf8;
+            --accent-glow: rgba(56, 189, 248, 0.35);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background: var(--bg-color); color: var(--text-main); padding: 16px; display: flex; flex-direction: column; align-items: center; }
+        .container { max-width: 480px; width: 100%; display: flex; flex-direction: column; gap: 20px; }
+
+        .header { text-align: center; margin-bottom: 8px; }
+        .header h1 { font-size: 1.35rem; font-weight: 800; color: var(--accent); }
+        .header p { font-size: 0.85rem; color: var(--text-muted); margin-top: 4px; }
+
+        /* Controls */
+        .controls-card {
+            background: #182234;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .btn-row { display: flex; gap: 8px; }
+        button {
+            background: linear-gradient(135deg, #0284c7, #0369a1);
+            color: #fff; border: none; border-radius: 8px;
+            padding: 10px 14px; font-weight: 700; font-size: 0.9rem; cursor: pointer; flex: 1;
+            transition: transform 0.1s, opacity 0.2s;
+        }
+        button:active { transform: scale(0.96); }
+        button.secondary { background: #334155; }
+
+        .demo-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        .demo-title { font-size: 0.95rem; font-weight: 700; color: #cbd5e1; display: flex; justify-content: space-between; align-items: center; }
+        .demo-tag { font-size: 0.75rem; background: rgba(56,189,248,0.15); color: var(--accent); padding: 2px 8px; border-radius: 12px; }
+
+        /* ========================================================= */
+        /* STYLE A: 靈動膠囊 (Cyber Capsule) ⭐                        */
+        /* ========================================================= */
+        .capsule-loading {
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid rgba(56, 189, 248, 0.4);
+            border-radius: 30px;
+            padding: 8px 16px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 0 16px var(--accent-glow);
+            backdrop-filter: blur(8px);
+            max-width: 100%;
+        }
+        .pulse-orb {
+            width: 10px; height: 10px; border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 10px var(--accent);
+            animation: orbPulse 1.2s infinite ease-in-out;
+            flex-shrink: 0;
+        }
+        @keyframes orbPulse {
+            0%, 100% { transform: scale(0.8); opacity: 0.5; }
+            50% { transform: scale(1.25); opacity: 1; }
+        }
+        .capsule-text {
+            font-size: 0.88rem;
+            color: #e2e8f0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            transition: opacity 0.2s, transform 0.2s;
+        }
+
+        /* ========================================================= */
+        /* STYLE B: 折疊式思考卡 (Thinking Box)                       */
+        /* ========================================================= */
+        .thinking-card {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.3s;
+        }
+        .thinking-header {
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(56, 189, 248, 0.08);
+            border-bottom: 1px solid rgba(56, 189, 248, 0.15);
+            cursor: pointer;
+        }
+        .thinking-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--accent);
+            overflow: hidden;
+        }
+        .spinner {
+            width: 14px; height: 14px;
+            border: 2px solid rgba(56, 189, 248, 0.3);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            flex-shrink: 0;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .thinking-body {
+            padding: 10px 14px;
+            font-family: monospace;
+            font-size: 0.8rem;
+            color: #94a3b8;
+            max-height: 120px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            background: #090d16;
+        }
+        .log-line {
+            animation: lineIn 0.2s ease-out;
+            border-left: 2px solid #38bdf8;
+            padding-left: 6px;
+        }
+        @keyframes lineIn { from { opacity: 0; transform: translateX(-4px); } to { opacity: 1; } }
+
+        /* ========================================================= */
+        /* STYLE C: 流光單行打字機 (Shimmer Ticker)                   */
+        /* ========================================================= */
+        .ticker-box {
+            background: #0f172a;
+            border-left: 3px solid var(--accent);
+            padding: 10px 14px;
+            border-radius: 0 10px 10px 0;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+        }
+        .ticker-content {
+            font-size: 0.88rem;
+            background: linear-gradient(90deg, #38bdf8, #818cf8, #38bdf8);
+            background-size: 200% auto;
+            color: transparent;
+            -webkit-background-clip: text;
+            animation: textShimmer 2.5s linear infinite;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        @keyframes textShimmer {
+            to { background-position: 200% center; }
+        }
+        .cursor-blink {
+            display: inline-block;
+            width: 7px; height: 14px;
+            background: var(--accent);
+            margin-left: 4px;
+            animation: blink 0.9s infinite;
+        }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+        /* ========================================================= */
+        /* STYLE D: 氣泡內嵌變形 (Morphing Bubble)                    */
+        /* ========================================================= */
+        .chat-bubble-loading {
+            background: #334155;
+            border-radius: 16px 16px 16px 4px;
+            padding: 12px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            max-width: 85%;
+        }
+        .bubble-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            color: var(--accent);
+            font-weight: 700;
+        }
+        .bubble-live-line {
+            font-size: 0.9rem;
+            color: #f1f5f9;
+            animation: fadeSlide 0.25s ease-out;
+        }
+        @keyframes fadeSlide {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>✨ AI Loading UI 演示</h1>
+        <p>只顯示「最後一行輸出 / 即時進度」的設計評估</p>
+    </div>
+
+    <!-- Interactive Controller -->
+    <div class="controls-card">
+        <div style="font-size: 0.85rem; font-weight: 700; color: var(--accent);">🕹️ 模擬輸出控制</div>
+        <div class="btn-row">
+            <button onclick="nextSimulatedStep()">▶ 模擬產生下一行</button>
+            <button class="secondary" onclick="resetDemo()">🔄 重設</button>
+        </div>
+        <div style="font-size: 0.8rem; color: var(--text-muted);">
+            當前最後一行：<span id="current-line-label" style="color: #fff; font-weight: 600;">正在啟動分析模組...</span>
+        </div>
+    </div>
+
+    <!-- 方案 A -->
+    <div class="demo-card">
+        <div class="demo-title">
+            <span>方案 A：靈動膠囊 (Cyber Capsule)</span>
+            <span class="demo-tag">推薦 ⭐ 最俐落</span>
+        </div>
+        <div>
+            <div class="capsule-loading">
+                <div class="pulse-orb"></div>
+                <div id="capsule-text" class="capsule-text">正在啟動分析模組...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 方案 B -->
+    <div class="demo-card">
+        <div class="demo-title">
+            <span>方案 B：折疊思考卡 (Thinking Box)</span>
+            <span class="demo-tag">可點擊展開日誌</span>
+        </div>
+        <div class="thinking-card">
+            <div class="thinking-header" onclick="toggleThinkingBody()">
+                <div class="thinking-status">
+                    <div class="spinner"></div>
+                    <span id="thinking-latest-text">正在啟動分析模組...</span>
+                </div>
+                <span id="thinking-arrow" style="font-size: 0.75rem; color: #94a3b8;">▼ 展開</span>
+            </div>
+            <div id="thinking-body" class="thinking-body" style="display: none;">
+                <div class="log-line">正在啟動分析模組...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 方案 C -->
+    <div class="demo-card">
+        <div class="demo-title">
+            <span>方案 C：流光單行打字機 (Shimmer Ticker)</span>
+            <span class="demo-tag">賽博科技感</span>
+        </div>
+        <div class="ticker-box">
+            <span id="ticker-text" class="ticker-content">正在啟動分析模組...</span>
+            <span class="cursor-blink"></span>
+        </div>
+    </div>
+
+    <!-- 方案 D -->
+    <div class="demo-card">
+        <div class="demo-title">
+            <span>方案 D：氣泡內嵌變形 (Morphing Bubble)</span>
+            <span class="demo-tag">原生聊天感</span>
+        </div>
+        <div class="chat-bubble-loading">
+            <div class="bubble-badge">
+                <div class="spinner" style="width: 10px; height: 10px; border-width: 1.5px;"></div>
+                <span>特勤 AI 正在組織回應</span>
+            </div>
+            <div id="bubble-text" class="bubble-live-line">正在啟動分析模組...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const simulatedSteps = [
+        "🔍 正在解析棋盤局勢 (121 個孔位)...",
+        "🧮 評估紅方最佳連跳路徑 (BFS 深度: 4)...",
+        "🎯 發現關鍵搭橋節點 [Hole 45 -> Hole 67]...",
+        "⚡ 正在搜尋攔截綠方反擊的防守落點...",
+        "✨ 完成計算！正在生成最佳推薦步數..."
+    ];
+
+    let currentStepIndex = 0;
+
+    function updateAllUI(text) {
+        document.getElementById('current-line-label').textContent = text;
+
+        // Style A
+        const capEl = document.getElementById('capsule-text');
+        capEl.style.opacity = '0';
+        capEl.style.transform = 'translateY(4px)';
+        setTimeout(() => {
+            capEl.textContent = text;
+            capEl.style.opacity = '1';
+            capEl.style.transform = 'translateY(0)';
+        }, 150);
+
+        // Style B
+        document.getElementById('thinking-latest-text').textContent = text;
+        const logBody = document.getElementById('thinking-body');
+        const newLine = document.createElement('div');
+        newLine.className = 'log-line';
+        newLine.textContent = text;
+        logBody.appendChild(newLine);
+        logBody.scrollTop = logBody.scrollHeight;
+
+        // Style C
+        document.getElementById('ticker-text').textContent = text;
+
+        // Style D
+        const bText = document.getElementById('bubble-text');
+        bText.textContent = text;
+        bText.style.animation = 'none';
+        bText.offsetHeight; // reflow
+        bText.style.animation = 'fadeSlide 0.25s ease-out';
+    }
+
+    function nextSimulatedStep() {
+        currentStepIndex = (currentStepIndex + 1) % simulatedSteps.length;
+        updateAllUI(simulatedSteps[currentStepIndex]);
+    }
+
+    function resetDemo() {
+        currentStepIndex = 0;
+        document.getElementById('thinking-body').innerHTML = '<div class="log-line">正在啟動分析模組...</div>';
+        updateAllUI("正在啟動分析模組...");
+    }
+
+    function toggleThinkingBody() {
+        const body = document.getElementById('thinking-body');
+        const arrow = document.getElementById('thinking-arrow');
+        if (body.style.display === 'none') {
+            body.style.display = 'flex';
+            arrow.textContent = '▲ 收合';
+        } else {
+            body.style.display = 'none';
+            arrow.textContent = '▼ 展開';
+        }
+    }
+</script>
+</body>
+</html>
