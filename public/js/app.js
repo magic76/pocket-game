@@ -1109,8 +1109,9 @@ class PocketApp {
 
                 const discColor = engine.board[r][c];
                 if (discColor) {
+                    const isLast = engine.lastMove && engine.lastMove.r === r && engine.lastMove.c === c;
                     const disc = document.createElement('div');
-                    disc.className = `connect4-disc ${discColor}`;
+                    disc.className = `connect4-disc ${discColor} ${isLast ? 'dropping' : ''}`;
                     if (engine.winningCells && engine.winningCells.some(w => w.r === r && w.c === c)) {
                         disc.classList.add('winning');
                     }
@@ -1166,17 +1167,53 @@ class PocketApp {
         this.dom.boardEl.innerHTML = '';
         this.dom.boardEl.className = 'blokus-container';
 
-        // 1. Controls Row (Rotate, Flip, Pass)
-        const ctrlRow = document.createElement('div');
-        ctrlRow.className = 'blokus-controls-row';
-        ctrlRow.innerHTML = `
-            <div style="display: flex; gap: 6px;">
-                <button class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;" onclick="window.app.rotateBlokusPiece()">🔄 旋轉 90°</button>
-                <button class="btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;" onclick="window.app.flipBlokusPiece()">⇄ 翻轉</button>
-            </div>
-            <button class="btn-primary" style="padding: 6px 14px; font-size: 0.8rem; background: #dc2626;" onclick="window.app.passBlokusTurn()">⏭️ PASS (無子可下)</button>
+        if (!this.blokusCategory) this.blokusCategory = 'all';
+
+        const myPieces = engine.playerPieces[engine.turn] || [];
+        let currentPiece = myPieces.find(p => p.id === this.selectedBlokusPieceId);
+        if (!currentPiece || currentPiece.used) {
+            const firstUnused = myPieces.find(p => !p.used);
+            if (firstUnused) {
+                this.selectedBlokusPieceId = firstUnused.id;
+                this.currentBlokusShape = BlokusEngine.normalize(firstUnused.coords);
+                currentPiece = firstUnused;
+            }
+        }
+
+        const activeShape = this.currentBlokusShape || (currentPiece ? currentPiece.coords : [[0,0]]);
+
+        // 1. Top HUD (Active Piece Preview & Action Buttons)
+        const hudEl = document.createElement('div');
+        hudEl.className = 'blokus-hud';
+
+        const previewContainer = document.createElement('div');
+        previewContainer.className = 'blokus-current-preview';
+
+        const pBox = document.createElement('div');
+        pBox.className = 'blokus-preview-box';
+        pBox.appendChild(this.renderMiniPolyominoSVG(activeShape, engine.turn, 10));
+
+        const infoBox = document.createElement('div');
+        infoBox.innerHTML = `
+            <div style="font-size: 0.85rem; font-weight: 800; color: #fff;">當前方塊: ${activeShape.length}格</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted);">點擊棋盤放置</div>
         `;
-        this.dom.boardEl.appendChild(ctrlRow);
+
+        previewContainer.appendChild(pBox);
+        previewContainer.appendChild(infoBox);
+
+        const actionsBox = document.createElement('div');
+        actionsBox.style.display = 'flex';
+        actionsBox.style.gap = '6px';
+        actionsBox.innerHTML = `
+            <button class="btn-secondary" style="padding: 6px 10px; font-size: 0.75rem;" onclick="window.app.rotateBlokusPiece()">🔄 旋轉</button>
+            <button class="btn-secondary" style="padding: 6px 10px; font-size: 0.75rem;" onclick="window.app.flipBlokusPiece()">⇄ 翻轉</button>
+            <button class="btn-primary" style="padding: 6px 10px; font-size: 0.75rem; background: #dc2626;" onclick="window.app.passBlokusTurn()">⏭️ PASS</button>
+        `;
+
+        hudEl.appendChild(previewContainer);
+        hudEl.appendChild(actionsBox);
+        this.dom.boardEl.appendChild(hudEl);
 
         // 2. Main Grid
         const gridEl = document.createElement('div');
@@ -1187,6 +1224,26 @@ class PocketApp {
         const startPoints = engine.startPoints[engine.turn] || [];
         const isFirst = engine.isFirstMove(engine.turn);
 
+        // Cell hover ghost helper
+        const highlightGhost = (originY, originX, show) => {
+            document.querySelectorAll('.blokus-cell.ghost-valid, .blokus-cell.ghost-invalid').forEach(c => {
+                c.classList.remove('ghost-valid', 'ghost-invalid');
+            });
+            if (!show) return;
+
+            const isValid = engine.isValidPlacement(engine.turn, activeShape, originY, originX);
+            const ghostClass = isValid ? 'ghost-valid' : 'ghost-invalid';
+
+            for (const [dy, dx] of activeShape) {
+                const y = originY + dy;
+                const x = originX + dx;
+                if (y >= 0 && y < engine.size && x >= 0 && x < engine.size) {
+                    const targetEl = gridEl.children[y * engine.size + x];
+                    if (targetEl) targetEl.classList.add(ghostClass);
+                }
+            }
+        };
+
         for (let y = 0; y < engine.size; y++) {
             for (let x = 0; x < engine.size; x++) {
                 const cell = document.createElement('div');
@@ -1195,7 +1252,15 @@ class PocketApp {
 
                 cell.className = `blokus-cell ${color || ''} ${isStart ? 'start-point' : ''}`;
 
+                cell.addEventListener('mouseenter', () => highlightGhost(y, x, true));
+                cell.addEventListener('mouseleave', () => highlightGhost(y, x, false));
+
                 cell.addEventListener('click', () => {
+                    const isValid = engine.isValidPlacement(engine.turn, activeShape, y, x);
+                    if (!isValid) {
+                        if (isFirst) this.showToast('⚠️ 第一步必須覆蓋發光的起始點！');
+                        else this.showToast('⚠️ 方塊必須與同色「角對角」相連，且嚴禁「邊挨邊」！');
+                    }
                     onCellClick(x, y, { originY: y, originX: x });
                 });
 
@@ -1204,17 +1269,47 @@ class PocketApp {
         }
         this.dom.boardEl.appendChild(gridEl);
 
-        // 3. Piece Drawer / Tray
+        // 3. Category Filter Tabs
+        const catTabsEl = document.createElement('div');
+        catTabsEl.className = 'blokus-category-tabs';
+        const cats = [
+            { id: 'all', label: '全部 (21)' },
+            { id: '5', label: '5格 (12)' },
+            { id: '4', label: '4格 (5)' },
+            { id: '3', label: '3格 (2)' },
+            { id: '1-2', label: '1~2格 (2)' }
+        ];
+
+        cats.forEach(c => {
+            const tab = document.createElement('div');
+            tab.className = `blokus-cat-tab ${this.blokusCategory === c.id ? 'active' : ''}`;
+            tab.textContent = c.label;
+            tab.addEventListener('click', () => {
+                this.blokusCategory = c.id;
+                this.renderCurrentBoard();
+            });
+            catTabsEl.appendChild(tab);
+        });
+        this.dom.boardEl.appendChild(catTabsEl);
+
+        // 4. Piece Drawer / Tray (Filtered)
         const trayEl = document.createElement('div');
         trayEl.className = 'blokus-tray';
 
-        const myPieces = engine.playerPieces[engine.turn] || [];
-        myPieces.forEach(p => {
+        const filteredPieces = myPieces.filter(p => {
+            if (this.blokusCategory === '5') return p.size === 5;
+            if (this.blokusCategory === '4') return p.size === 4;
+            if (this.blokusCategory === '3') return p.size === 3;
+            if (this.blokusCategory === '1-2') return p.size <= 2;
+            return true;
+        });
+
+        filteredPieces.forEach(p => {
             const pieceBox = document.createElement('div');
             pieceBox.className = `blokus-mini-piece ${p.id === this.selectedBlokusPieceId ? 'selected' : ''} ${p.used ? 'used' : ''}`;
 
             const shape = (p.id === this.selectedBlokusPieceId && this.currentBlokusShape) ? this.currentBlokusShape : p.coords;
-            pieceBox.appendChild(this.renderMiniPolyominoSVG(shape, engine.turn));
+            pieceBox.appendChild(this.renderMiniPolyominoSVG(shape, engine.turn, 8));
 
             pieceBox.addEventListener('click', () => {
                 this.selectedBlokusPieceId = p.id;
@@ -1234,7 +1329,7 @@ class PocketApp {
         }
     }
 
-    renderMiniPolyominoSVG(coords, color) {
+    renderMiniPolyominoSVG(coords, color, cellSize = 8) {
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         const colorMap = { blue: '#0284c7', orange: '#ea580c', yellow: '#ca8a04', green: '#16a34a', red: '#dc2626' };
         const fill = colorMap[color] || '#38bdf8';
@@ -1245,7 +1340,6 @@ class PocketApp {
             if (y > maxY) maxY = y;
         });
 
-        const cellSize = 8;
         svg.setAttribute('width', (maxX + 1) * cellSize + 2);
         svg.setAttribute('height', (maxY + 1) * cellSize + 2);
 
