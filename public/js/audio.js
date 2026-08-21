@@ -136,6 +136,58 @@ class SoundManager {
             osc.stop(now + 0.15);
         } catch (e) {}
     }
+
+    playDrop() {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+        this.vibrate(25);
+
+        try {
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(360, now);
+            osc.frequency.exponentialRampToValueAtTime(120, now + 0.12);
+
+            gain.gain.setValueAtTime(0.6, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+
+            osc.start(now);
+            osc.stop(now + 0.12);
+        } catch (e) {}
+    }
+
+    playSnap() {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+        this.vibrate(15);
+
+        try {
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(600, now);
+            osc.frequency.exponentialRampToValueAtTime(200, now + 0.04);
+
+            gain.gain.setValueAtTime(0.25, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+
+            osc.start(now);
+            osc.stop(now + 0.05);
+        } catch (e) {}
+    }
 }
 
 window.sounds = new SoundManager();

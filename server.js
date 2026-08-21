@@ -103,6 +103,7 @@ function broadcastToRoom(room, message, excludeWs = null) {
         room.players.black?.ws,
         room.players.white?.ws,
         room.players.blue?.ws,
+        room.players.green?.ws,
         ...room.spectators.map(s => s.ws)
     ].filter(Boolean);
 
@@ -119,13 +120,18 @@ function getRoomPublicState(room) {
         gameType: room.gameType,
         playerCount: room.playerCount || 2,
         board: room.board,
+        subBoards: room.subBoards || null,
+        mainBoard: room.mainBoard || null,
+        activeBoard: room.activeBoard !== undefined ? room.activeBoard : null,
+        playerPieces: room.playerPieces || null,
         turn: room.turn,
         winner: room.winner,
         status: room.status,
         players: {
             black: room.players.black ? { name: room.players.black.name, ready: room.players.black.ready } : null,
             white: room.players.white ? { name: room.players.white.name, ready: room.players.white.ready } : null,
-            blue: room.players.blue ? { name: room.players.blue.name, ready: room.players.blue.ready } : null
+            blue: room.players.blue ? { name: room.players.blue.name, ready: room.players.blue.ready } : null,
+            green: room.players.green ? { name: room.players.green.name, ready: room.players.green.ready } : null
         },
         spectatorCount: room.spectators.length,
         lastMove: room.lastMove || null,
@@ -137,7 +143,7 @@ function getRoomPublicState(room) {
 wss.on('connection', (ws) => {
     let currentRoomId = null;
     let currentRole = null; // 'black' | 'white' | 'spectator'
-    let playerName = '玩家';
+    let playerName = '匿名特勤';
 
     ws.isAlive = true;
     ws.on('pong', () => { ws.isAlive = true; });
@@ -152,19 +158,29 @@ wss.on('connection', (ws) => {
                 playerName = name || '房主';
                 const roomId = generateRoomId();
 
-                const initialTurn = (gameType === 'xiangqi' || gameType === 'checkers') ? 'red' : (gameType === 'chess' ? 'white' : 'black');
+                let initialTurn = 'black';
+                if (gameType === 'xiangqi' || gameType === 'checkers' || gameType === 'connect4') initialTurn = 'red';
+                else if (gameType === 'chess') initialTurn = 'white';
+                else if (gameType === 'uttt') initialTurn = 'X';
+                else if (gameType === 'blokus') initialTurn = 'blue';
+
                 const newRoom = {
                     id: roomId,
                     gameType: gameType || 'gomoku',
                     playerCount: playerCount || 2,
                     board: null,
+                    subBoards: null,
+                    mainBoard: null,
+                    activeBoard: null,
+                    playerPieces: null,
                     turn: initialTurn,
                     winner: null,
                     status: 'waiting',
                     players: {
                         black: { ws, name: playerName, ready: true },
                         white: null,
-                        blue: null
+                        blue: null,
+                        green: null
                     },
                     spectators: [],
                     moveHistory: [],
@@ -204,12 +220,18 @@ wss.on('connection', (ws) => {
                 } else if (!room.players.white) {
                     room.players.white = { ws, name: playerName, ready: true };
                     currentRole = 'white';
-                    if (room.playerCount !== 3 && room.status === 'waiting') {
+                    if (room.playerCount === 2 && room.status === 'waiting') {
                         room.status = 'playing';
                     }
-                } else if (room.playerCount === 3 && !room.players.blue) {
+                } else if (room.playerCount >= 3 && !room.players.blue) {
                     room.players.blue = { ws, name: playerName, ready: true };
                     currentRole = 'blue';
+                    if (room.playerCount === 3 && room.status === 'waiting') {
+                        room.status = 'playing';
+                    }
+                } else if (room.playerCount === 4 && !room.players.green) {
+                    room.players.green = { ws, name: playerName, ready: true };
+                    currentRole = 'green';
                     if (room.status === 'waiting') {
                         room.status = 'playing';
                     }
@@ -240,12 +262,16 @@ wss.on('connection', (ws) => {
                 const room = rooms.get(currentRoomId);
                 if (!room) return;
 
-                const { x, y, from, to, board, nextTurn, winner, scores, capturedCount } = data;
+                const { x, y, col, from, to, board, subBoards, mainBoard, activeBoard, playerPieces, nextTurn, winner, scores, capturedCount } = data;
 
-                room.board = board;
+                if (board !== undefined) room.board = board;
+                if (subBoards !== undefined) room.subBoards = subBoards;
+                if (mainBoard !== undefined) room.mainBoard = mainBoard;
+                if (activeBoard !== undefined) room.activeBoard = activeBoard;
+                if (playerPieces !== undefined) room.playerPieces = playerPieces;
                 room.turn = nextTurn;
                 room.winner = winner || null;
-                room.lastMove = { x, y, from, to, by: currentRole };
+                room.lastMove = { x, y, col, from, to, by: currentRole };
                 room.scores = scores || room.scores;
                 room.capturedCount = capturedCount || room.capturedCount;
                 room.lastActivity = Date.now();
@@ -376,7 +402,7 @@ function startServer(portToTry) {
         const serverUrl = `http://${primaryIp}:${PORT}`;
 
         console.log('\n======================================================');
-        console.log('  ✈️  機上離線棋藝盒 (Pocket Game Hub 5-in-1)');
+        console.log('  ✈️  機上離線棋藝盒 (Pocket Game Hub 8-in-1)');
         console.log('======================================================');
         console.log(`🚀 本地伺服器已啟動於連接埠: ${PORT}`);
         console.log(`📱 本機遊玩網址:  http://localhost:${PORT}`);
