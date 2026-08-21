@@ -48,12 +48,14 @@
 ### 啟動遊戲
 ```bash
 ./start.sh
+# 或在 Termux 根目錄執行：./start-game.sh
 # 或使用 npm start
 ```
 
 ### 關閉遊戲
 ```bash
 ./stop.sh
+# 或在 Termux 根目錄執行：./stop-game.sh
 # 或使用 npm stop
 ```
 
