@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>卡卡頌 (Carcassonne) 典藏版</title>
     <style>
         :root {
@@ -30,6 +30,7 @@
             max-width: 100vw;
             overflow: hidden;
             height: 100vh;
+            height: 100dvh;
             background: var(--bg-color);
             color: var(--text-main);
             display: flex;
@@ -67,7 +68,7 @@
             display: flex;
             align-items: center;
             gap: 5px;
-            font-size: 1.1rem;
+            font-size: 1.05rem;
             font-weight: 900;
             color: #fde047;
             text-shadow: 0 0 10px rgba(251, 191, 36, 0.4), 0 2px 4px #000;
@@ -104,9 +105,10 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.4);
         }
         button:active { transform: scale(0.95); }
-        button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+        button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
         button.primary { background: linear-gradient(135deg, #0284c7, #0369a1); border-color: #38bdf8; }
         button.gold-btn { background: linear-gradient(135deg, #b45309, #78350f); border-color: #fbbf24; color: #fef08a; }
+        button.meeple-btn { background: #23190e; border: 1.5px solid #d97706; color: #fde047; padding: 6px 10px; font-size: 0.76rem; border-radius: 8px; }
 
         /* Row 2: Player Status Cards */
         .header-scoreboard-row {
@@ -124,17 +126,19 @@
             align-items: center;
             gap: 6px;
             min-width: 0;
-            transition: all 0.2s;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .player-card.active.red {
             border-color: #ef4444;
-            background: linear-gradient(135deg, rgba(239, 68, 68, 0.25), #140e08);
-            box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.35), #140e08);
+            box-shadow: 0 0 14px rgba(239, 68, 68, 0.5);
+            transform: scale(1.02);
         }
         .player-card.active.blue {
             border-color: #3b82f6;
-            background: linear-gradient(135deg, rgba(59, 130, 246, 0.25), #140e08);
-            box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.35), #140e08);
+            box-shadow: 0 0 14px rgba(59, 130, 246, 0.5);
+            transform: scale(1.02);
         }
 
         .player-badge-icon {
@@ -251,31 +255,6 @@
         }
         .slot-plus { font-size: 2.2rem; color: #fbbf24; font-weight: 900; text-shadow: 0 0 8px rgba(251, 191, 36, 0.6); }
 
-        /* Meeple Picker Overlay Dialog */
-        .meeple-picker-overlay {
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(22, 16, 11, 0.97);
-            backdrop-filter: blur(12px);
-            border: 2px solid var(--accent-gold);
-            border-radius: 14px;
-            padding: 12px;
-            display: flex; flex-direction: column; gap: 8px;
-            z-index: 500;
-            box-shadow: 0 14px 35px rgba(0,0,0,0.9);
-            animation: tileDrop 0.22s;
-            min-width: 210px;
-        }
-        .meeple-picker-title { font-size: 0.8rem; font-weight: 800; color: var(--accent-gold); text-align: center; }
-        .meeple-btn-group { display: flex; flex-direction: column; gap: 5px; }
-        .meeple-choice-btn {
-            padding: 7px 10px; font-size: 0.78rem; border-radius: 8px;
-            background: #2b1f14; border: 1px solid #4a3523; color: #fff;
-            display: flex; align-items: center; justify-content: space-between;
-        }
-        .meeple-choice-btn:hover { background: #3d2c1d; border-color: var(--accent-gold); }
-
         /* Floating Score Popups */
         .score-popup {
             position: absolute;
@@ -292,43 +271,80 @@
             100% { transform: translate(-50%, -100px) scale(0.8); opacity: 0; }
         }
 
-        /* Bottom Floating HUD */
+        /* ========================================= */
+        /* SLEEK FLOATING BOTTOM HUD                 */
+        /* ========================================= */
         .hud-overlay {
             position: absolute;
-            bottom: 12px; left: 50%;
+            bottom: max(10px, env(safe-area-inset-bottom, 10px));
+            left: 50%;
             transform: translateX(-50%);
-            background: rgba(22, 16, 11, 0.96);
+            background: rgba(20, 14, 9, 0.97);
             backdrop-filter: blur(14px);
             border: 1.5px solid #4a3523;
             border-radius: 16px;
-            padding: 8px 12px;
-            display: flex; align-items: center; gap: 12px;
-            box-shadow: 0 10px 35px rgba(0,0,0,0.85);
-            z-index: 100; max-width: 95%; width: auto;
+            padding: 6px 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.9);
+            z-index: 100;
+            max-width: 96%;
+            width: auto;
+            transition: all 0.2s;
         }
         .current-tile-preview {
-            width: 72px; height: 72px;
+            width: 62px; height: 62px;
             border-radius: 8px; background: #0f0a06;
-            box-shadow: inset 0 2px 5px rgba(0,0,0,0.8), 0 4px 12px rgba(0,0,0,0.6);
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.8), 0 4px 10px rgba(0,0,0,0.6);
             display: flex; align-items: center; justify-content: center;
             overflow: hidden; flex-shrink: 0;
+            cursor: pointer;
         }
         .tile-rotator { width: 100%; height: 100%; transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1); }
-        .hud-info { display: flex; flex-direction: column; gap: 2px; }
-        .hud-title { font-size: 0.85rem; font-weight: 800; color: #fde047; }
-        .hud-desc { font-size: 0.7rem; color: var(--text-muted); }
-        .hud-actions { display: flex; gap: 6px; margin-top: 2px; }
+        
+        .hud-content-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+        }
+        .hud-title-bar {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+            font-weight: 800;
+        }
+        .hud-player-tag {
+            font-size: 0.68rem;
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-weight: 900;
+        }
+        .hud-player-tag.red { background: #dc2626; color: #fff; }
+        .hud-player-tag.blue { background: #2563eb; color: #fff; }
+
+        .hud-desc { font-size: 0.68rem; color: var(--text-muted); }
+        
+        .hud-actions-row {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-top: 2px;
+            flex-wrap: wrap;
+        }
 
         /* Floating Zoom Controls */
         .zoom-controls {
-            position: absolute; right: 12px; bottom: 105px;
+            position: absolute; right: 10px; bottom: 85px;
             display: flex; flex-direction: column; gap: 6px; z-index: 90;
         }
         .zoom-btn {
-            width: 38px; height: 38px;
+            width: 36px; height: 36px;
             background: rgba(30, 21, 14, 0.94);
             border: 1.5px solid #4a3523; border-radius: 50%;
-            color: #fde047; font-size: 1.15rem; font-weight: 900;
+            color: #fde047; font-size: 1.1rem; font-weight: 900;
             display: flex; align-items: center; justify-content: center;
             box-shadow: 0 6px 14px rgba(0,0,0,0.6);
         }
@@ -447,21 +463,27 @@
         <button class="zoom-btn" onclick="resetView()" style="font-size: 0.85rem;">🎯</button>
     </div>
 
-    <!-- Floating HUD (Draw & Rotate) -->
+    <!-- SLEEK BOTTOM HUD (Interactive & Responsive) -->
     <div class="hud-overlay">
-        <div class="current-tile-preview">
+        <div class="current-tile-preview" onclick="rotateCurrentTile()" title="點擊直接旋轉">
             <div id="hud-rotator" class="tile-rotator">
                 <!-- Current Tile SVG injected here -->
             </div>
         </div>
-        <div class="hud-info">
-            <div id="hud-tile-name" class="hud-title">鵝卵石古道 (Road)</div>
-            <div class="hud-desc" id="hud-status-desc">
-                剩餘: <b id="deck-count-text">71/72</b> ｜ 點擊黃色 <b>[➕]</b> 拼放
+        <div class="hud-content-panel">
+            <div class="hud-title-bar">
+                <span id="hud-player-tag" class="hud-player-tag red">紅方</span>
+                <span id="hud-tile-name" style="color: #fde047;">古道林地</span>
+                <span style="font-size: 0.68rem; color: #a89f91;">(餘 <b id="deck-count-text">71</b>)</span>
             </div>
-            <div class="hud-actions">
-                <button id="btn-rotate" class="primary" onclick="rotateCurrentTile()">🔄 旋轉</button>
-                <button id="btn-draw" onclick="drawRandomTile()">🎲 抽牌</button>
+            
+            <div id="hud-status-desc" class="hud-desc">
+                點擊地圖黃色 <b>[➕]</b> 拼放板塊
+            </div>
+
+            <!-- Dynamic Actions Container -->
+            <div id="hud-actions-row" class="hud-actions-row">
+                <!-- Buttons injected based on turn phase -->
             </div>
         </div>
     </div>
@@ -720,7 +742,6 @@
                 </g>
             `;
         } else if (def.cityType === 'corner') {
-            // CORNER: North & East
             svg += `<path d="M 0 0 L 100 0 L 100 100 C 58 76, 26 44, 0 0 Z" fill="#000" opacity="0.32" />`;
             svg += `<path d="M 0 0 L 100 0 L 100 100 C 60 72, 28 40, 0 0 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" />`;
             svg += `
@@ -894,7 +915,7 @@
 
     let scale = 0.95;
     let panX = window.innerWidth / 2 - 50;
-    let panY = window.innerHeight / 2 - 50;
+    let panY = window.innerHeight / 2 - 80;
     let isDragging = false;
     let dragStartX = 0, dragStartY = 0;
     let isTicking = false;
@@ -918,7 +939,7 @@
 
     // Mouse & Touch Pan/Zoom Handlers
     viewportEl.addEventListener('mousedown', (e) => {
-        if (e.target.closest('.placement-slot') || e.target.closest('.hud-overlay') || e.target.closest('.meeple-picker-overlay')) return;
+        if (e.target.closest('.placement-slot') || e.target.closest('.hud-overlay')) return;
         isDragging = true;
         dragStartX = e.clientX - panX;
         dragStartY = e.clientY - panY;
@@ -984,7 +1005,7 @@
     function resetView() {
         scale = 0.95;
         panX = window.innerWidth / 2 - 50;
-        panY = window.innerHeight / 2 - 50;
+        panY = window.innerHeight / 2 - 80;
         requestRender();
     }
 
@@ -1022,7 +1043,7 @@
     }
 
     function findValidPlacementSlots() {
-        if (turnPhase !== 'PLACE_TILE') return []; // NO slots allowed when deciding meeple!
+        if (turnPhase !== 'PLACE_TILE') return [];
 
         const candidateSlots = new Set();
         const directions = [[0, -1], [1, 0], [0, 1], [-1, 0]];
@@ -1049,7 +1070,7 @@
     }
 
     // ==========================================
-    // 🏰 BOARD RENDERING & STRICT TURN CONTROL
+    // 🏰 BOARD RENDERING & TURN FLOW
     // ==========================================
     function renderWorld(justPlacedKey = null) {
         worldEl.innerHTML = '';
@@ -1074,7 +1095,7 @@
             }
         }
 
-        // ONLY render [+] slots during PLACE_TILE phase
+        // Only show [+] placement slots during PLACE_TILE phase
         if (turnPhase === 'PLACE_TILE') {
             const validSlots = findValidPlacementSlots();
             validSlots.forEach(({ gx, gy }) => {
@@ -1096,14 +1117,11 @@
         updateHUD();
     }
 
-    // PHASE 1: Tile Placement (STRICT SINGLE-ACTION LOCK)
+    // PHASE 1: Tile Placement
     function handleTilePlacement(gx, gy) {
-        if (turnPhase !== 'PLACE_TILE') return; // BLOCK any multi-clicks!
+        if (turnPhase !== 'PLACE_TILE') return;
 
         audio.playSnap();
-
-        turnPhase = 'DEPLOY_MEEPLE'; // Lock state to Phase 2
-        justPlacedCoords = { gx, gy };
 
         const placedKey = `${gx},${gy}`;
         const placedTile = {
@@ -1113,76 +1131,51 @@
         };
         gridMap.set(placedKey, placedTile);
         remainingDeckCount = Math.max(0, remainingDeckCount - 1);
+        justPlacedCoords = { gx, gy };
 
-        // Re-render world immediately removing all [+] slots!
-        renderWorld(placedKey);
-
-        // Prompt meeple follower deployment
+        // Check if player has meeples remaining
         if (meeplesRemaining[activePlayer] > 0) {
-            showMeepleDeployPicker(gx, gy, placedTile);
+            turnPhase = 'DEPLOY_MEEPLE';
+            renderWorld(placedKey);
+            showToast(`👤 ${activePlayer === 'red' ? '紅方' : '藍方'}：請在下方選擇是否派遣米波跟隨者`);
         } else {
-            finishTurnAndCheckScoring(gx, gy);
+            // No meeples remaining -> Automatically finish turn & pass to next player!
+            finishTurnAndAdvancePlayer(gx, gy);
         }
     }
 
-    // PHASE 2: Meeple Choice Dialog
-    function showMeepleDeployPicker(gx, gy, tileData) {
-        const picker = document.createElement('div');
-        picker.className = 'meeple-picker-overlay';
-        picker.style.left = `${gx * TILE_SIZE + 50}px`;
-        picker.style.top = `${gy * TILE_SIZE + 50}px`;
-
-        const def = TILE_DEFS[tileData.typeKey];
-        let buttonsHtml = '';
-
-        if (def.cityType) {
-            buttonsHtml += `<button class="meeple-choice-btn" onclick="deployMeepleAt('knight', 50, 30)"><span>🏰 派遣騎士 (入駐城堡)</span><span>⚔️</span></button>`;
-        }
-        if (def.roadType) {
-            buttonsHtml += `<button class="meeple-choice-btn" onclick="deployMeepleAt('robber', 50, 50)"><span>🛣️ 派遣強盜 (巡邏道路)</span><span>🏹</span></button>`;
-        }
-        if (def.hasMonastery) {
-            buttonsHtml += `<button class="meeple-choice-btn" onclick="deployMeepleAt('monk', 50, 48)"><span>⛪ 派遣修道士 (主持神廟)</span><span>✝️</span></button>`;
-        }
-        buttonsHtml += `<button class="meeple-choice-btn" onclick="deployMeepleAt(null)"><span>⏭️ 保留米波 (不派遣)</span><span>✋</span></button>`;
-
-        picker.innerHTML = `
-            <div class="meeple-picker-title">👤 ${activePlayer === 'red' ? '紅方' : '藍方'} 領主：派遣米波跟隨者？</div>
-            <div class="meeple-btn-group">${buttonsHtml}</div>
-        `;
-
-        worldEl.appendChild(picker);
-    }
-
-    window.deployMeepleAt = function(role, ox = 50, oy = 50) {
+    // PHASE 2: Deploy Meeple or Skip
+    window.deployMeepleChoice = function(role, ox = 50, oy = 50) {
         if (turnPhase !== 'DEPLOY_MEEPLE' || !justPlacedCoords) return;
 
         const { gx, gy } = justPlacedCoords;
         const tile = gridMap.get(`${gx},${gy}`);
-        if (tile && role) {
+        
+        if (tile && role && meeplesRemaining[activePlayer] > 0) {
             tile.meeple = { color: activePlayer, role, offsetX: ox, offsetY: oy };
             meeplesRemaining[activePlayer]--;
             audio.playMeeple();
             showToast(`👤 ${activePlayer === 'red' ? '紅方' : '藍方'} 派遣了 ${role === 'knight' ? '騎士' : role === 'robber' ? '強盜' : '修道士'}！`);
         }
 
-        document.querySelectorAll('.meeple-picker-overlay').forEach(el => el.remove());
-        finishTurnAndCheckScoring(gx, gy);
+        finishTurnAndAdvancePlayer(gx, gy);
     };
 
-    // PHASE 3: Scoring & Switch Player Turn
-    function finishTurnAndCheckScoring(gx, gy) {
+    // PHASE 3: Score & Guaranteed Player Switch
+    function finishTurnAndAdvancePlayer(gx, gy) {
         turnPhase = 'RESOLVING';
 
         checkMonasteriesScoring();
 
-        // Switch to Next Player
+        // Switch to Next Player (Red <-> Blue)
         activePlayer = activePlayer === 'red' ? 'blue' : 'red';
         
-        // Draw Next Tile
+        // Draw Next Tile for New Player
         drawNextPlayerTile();
 
-        turnPhase = 'PLACE_TILE'; // Unlocked for next player!
+        turnPhase = 'PLACE_TILE';
+        justPlacedCoords = null;
+
         renderWorld();
 
         showToast(`▶ 輪到【${activePlayer === 'red' ? '紅方' : '藍方'}領主】行動！請拼放板塊`);
@@ -1247,7 +1240,7 @@
         document.getElementById('score-blue').textContent = scores.blue;
         document.getElementById('meeples-red').textContent = meeplesRemaining.red;
         document.getElementById('meeples-blue').textContent = meeplesRemaining.blue;
-        document.getElementById('deck-count-text').textContent = `${remainingDeckCount}/72`;
+        document.getElementById('deck-count-text').textContent = remainingDeckCount;
 
         const isRed = activePlayer === 'red';
         document.getElementById('p1-score-pill').className = `player-card ${isRed ? 'active' : ''} red`;
@@ -1258,18 +1251,42 @@
     }
 
     function updateHUD() {
-        document.getElementById('hud-rotator').innerHTML = renderTileSVG(currentTile.typeKey, currentTile.rotation, 72, 'hud_current');
+        document.getElementById('hud-rotator').innerHTML = renderTileSVG(currentTile.typeKey, currentTile.rotation, 62, 'hud_current');
         document.getElementById('hud-tile-name').textContent = TILE_DEFS[currentTile.typeKey].name;
 
-        const isPlacing = turnPhase === 'PLACE_TILE';
-        document.getElementById('btn-rotate').disabled = !isPlacing;
-        document.getElementById('btn-draw').disabled = !isPlacing;
+        const playerTag = document.getElementById('hud-player-tag');
+        const isRed = activePlayer === 'red';
+        playerTag.className = `hud-player-tag ${isRed ? 'red' : 'blue'}`;
+        playerTag.textContent = isRed ? '紅方回合' : '藍方回合';
 
         const statusDesc = document.getElementById('hud-status-desc');
-        if (turnPhase === 'DEPLOY_MEEPLE') {
-            statusDesc.innerHTML = `<span style="color: #fbbf24; font-weight: 800;">請選擇是否派遣米波跟隨者 👤</span>`;
-        } else {
-            statusDesc.innerHTML = `剩餘: <b id="deck-count-text">${remainingDeckCount}/72</b> ｜ 點擊黃色 <b>[➕]</b> 拼放`;
+        const actionsRow = document.getElementById('hud-actions-row');
+
+        if (turnPhase === 'PLACE_TILE') {
+            statusDesc.innerHTML = `點擊地圖黃色 <b>[➕]</b> 拼放板塊`;
+            actionsRow.innerHTML = `
+                <button class="primary" onclick="rotateCurrentTile()">🔄 旋轉 90°</button>
+                <button onclick="drawRandomTile()">🎲 抽新牌</button>
+            `;
+        } else if (turnPhase === 'DEPLOY_MEEPLE' && justPlacedCoords) {
+            const tile = gridMap.get(`${justPlacedCoords.gx},${justPlacedCoords.gy}`);
+            const def = TILE_DEFS[tile.typeKey];
+
+            statusDesc.innerHTML = `<b style="color: #fde047;">選擇派遣米波跟隨者 (餘 ${meeplesRemaining[activePlayer]} 隻)：</b>`;
+            
+            let buttonsHtml = '';
+            if (def.cityType) {
+                buttonsHtml += `<button class="meeple-btn" onclick="deployMeepleChoice('knight', 50, 30)">🏰 騎士</button>`;
+            }
+            if (def.roadType) {
+                buttonsHtml += `<button class="meeple-btn" onclick="deployMeepleChoice('robber', 50, 50)">🛣️ 強盜</button>`;
+            }
+            if (def.hasMonastery) {
+                buttonsHtml += `<button class="meeple-btn" onclick="deployMeepleChoice('monk', 50, 48)">⛪ 修道士</button>`;
+            }
+            buttonsHtml += `<button onclick="deployMeepleChoice(null)">⏭️ 不派遣</button>`;
+            
+            actionsRow.innerHTML = buttonsHtml;
         }
     }
 
