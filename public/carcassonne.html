@@ -765,7 +765,52 @@
     }
 
     function renderTileSVG(typeKey, rotation = 0, size = 100, tileUid = 'main') {
-        const def = TILE_DEFS[typeKey] || TILE_DEFS['U'];
+        const resolvedTypeKey = TILE_DEFS[typeKey] ? typeKey : 'U';
+        const def = TILE_DEFS[resolvedTypeKey];
+        const cityStructure = {
+            north: 'north-v1.webp',
+            bridge: 'bridge-v1.webp',
+            opposite: 'opposite-v1.webp',
+            'separate-corners': 'separate-corners-v1.webp',
+            corner: 'corner-v1.webp',
+            'three-sides': 'three-sides-v1.webp',
+            full: 'full-v1.webp'
+        }[def.cityType];
+
+        // Each city topology owns its own painted composition. The edge layout is designed in
+        // the artwork itself instead of stretching pixels or reusing a generic castle silhouette.
+        if (cityStructure) {
+            const roadPath = {
+                'straight-v': 'M 50 0 V 100',
+                'straight-h': 'M 0 50 H 100',
+                'south-west': 'M 0 50 Q 50 50 50 100',
+                'east-south': 'M 100 50 Q 50 50 50 100',
+                south: 'M 50 50 V 100',
+                't-junction': 'M 0 50 H 100 M 50 50 V 100',
+                crossroad: 'M 0 50 H 100 M 50 0 V 100'
+            }[def.roadType];
+            const roads = roadPath ? `
+                <path d="${roadPath}" fill="none" stroke="#8b7255" stroke-width="15" stroke-linecap="round" />
+                <path d="${roadPath}" fill="none" stroke="#ead7aa" stroke-width="10" stroke-linecap="round" />
+                <path d="${roadPath}" fill="none" stroke="#b99d70" stroke-width="1.1" stroke-dasharray="6 4" opacity="0.82" />
+            ` : '';
+            const crest = def.shield ? `
+                <g transform="translate(50, 24)">
+                    <path d="M -8 -10 H 8 V 2 C 8 8 0 13 0 13 C 0 13 -8 8 -8 2 Z" fill="#1d4f9d" stroke="#f5cf63" stroke-width="1.5" />
+                    <path d="M -3 -3 L 4 -3 L 4 4 L -3 4 Z" fill="#f5cf63" opacity="0.9" />
+                </g>
+            ` : '';
+            const well = def.roadType === 'crossroad' ? `
+                <circle cx="50" cy="50" r="9" fill="#88745e" stroke="#675542" stroke-width="1.2" />
+                <circle cx="50" cy="50" r="5" fill="#5b9cc0" />
+                <path d="M 42 50 H 58 M 50 42 V 58" stroke="#59402d" stroke-width="1.6" />
+            ` : '';
+            return `<svg viewBox="0 0 100 100" width="${size}" height="${size}" overflow="hidden" role="img" aria-label="${def.name}" style="transform: rotate(${rotation * 90}deg); transform-origin: center;">
+                <image href="assets/carcassonne-structures/${cityStructure}" width="100" height="100" preserveAspectRatio="none" />
+                ${roads}${well}${crest}
+            </svg>`;
+        }
+
         const p = THEME_PALETTES[currentMapTheme] || THEME_PALETTES.classic;
         const seed = [...tileUid].reduce((sum, char) => ((sum * 31) + char.charCodeAt(0)) >>> 0, 7);
         const foliageX = 12 + (seed % 25);
@@ -830,8 +875,7 @@
 
         // 2. High-Detail Castle / Fortress Walls
         if (def.cityType === 'north') {
-            svg += `<path d="M 0 0 L 100 0 C 80 48, 20 48, 0 0 Z" fill="#000" opacity="0.32" />`;
-            svg += `<path d="M 0 0 L 100 0 C 80 44, 20 44, 0 0 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" />`;
+            svg += `<path d="M 0 0 L 100 0 C 80 44, 20 44, 0 0 Z" fill="url(#wall_${tileUid})" />`;
             svg += `<path d="M 6 10 L 18 10 L 18 2 M 32 10 L 44 10 L 44 2 M 58 10 L 70 10 L 70 2 M 84 10 L 94 10 L 94 2" stroke="#1c242c" stroke-width="2" fill="none" />`;
             svg += `<path d="M 22 22 L 78 22 M 16 32 L 84 32 M 35 22 L 35 32 M 65 22 L 65 32" stroke="#36424e" stroke-width="0.8" fill="none" opacity="0.6" />`;
             svg += `
@@ -845,7 +889,7 @@
                 </g>
             `;
         } else if (def.cityType === 'full') {
-            svg += `<rect width="100" height="100" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.5" />`;
+            svg += `<rect width="100" height="100" fill="url(#wall_${tileUid})" />`;
             svg += `<rect x="18" y="18" width="64" height="64" fill="#2d3748" rx="4" />`;
             svg += `
                 <g transform="translate(24, 24)">
@@ -857,8 +901,7 @@
                 </g>
             `;
         } else if (def.cityType === 'corner') {
-            svg += `<path d="M 0 0 L 100 0 L 100 100 C 58 76, 26 44, 0 0 Z" fill="#000" opacity="0.32" />`;
-            svg += `<path d="M 0 0 L 100 0 L 100 100 C 60 72, 28 40, 0 0 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" />`;
+            svg += `<path d="M 0 0 L 100 0 L 100 100 C 60 72, 28 40, 0 0 Z" fill="url(#wall_${tileUid})" />`;
             svg += `
                 <g transform="translate(42, 14)">
                     <rect x="0" y="8" width="16" height="11" fill="#f8fafc" stroke="#475569" stroke-width="1" />
@@ -870,8 +913,7 @@
                 </g>
             `;
         } else if (def.cityType === 'three-sides') {
-            svg += `<path d="M 0 0 L 100 0 L 100 100 C 80 54, 65 72, 50 72 C 35 72, 20 54, 0 100 Z" fill="#000" opacity="0.32" />`;
-            svg += `<path d="M 0 0 L 100 0 L 100 100 C 80 50, 65 68, 50 68 C 35 68, 20 50, 0 100 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" />`;
+            svg += `<path d="M 0 0 L 100 0 L 100 100 C 80 50, 65 68, 50 68 C 35 68, 20 50, 0 100 Z" fill="url(#wall_${tileUid})" />`;
             svg += `
                 <g transform="translate(30, 20)">
                     <rect x="4" y="12" width="32" height="20" fill="#f8fafc" stroke="#475569" stroke-width="1" />
@@ -881,21 +923,20 @@
             `;
         } else if (def.cityType === 'bridge') {
             // One connected city runs north-to-south; narrow grass guards keep both side edges fully pastoral.
-            svg += `<path d="M 4 0 H 96 V 35 C 78 45 78 55 96 65 V 100 H 4 V 65 C 22 55 22 45 4 35 Z" fill="#000" opacity="0.3" />`;
-            svg += `<path d="M 4 0 H 96 V 35 C 78 45 78 55 96 65 V 100 H 4 V 65 C 22 55 22 45 4 35 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" />`;
+            svg += `<path d="M 4 0 H 96 V 35 C 78 45 78 55 96 65 V 100 H 4 V 65 C 22 55 22 45 4 35 Z" fill="url(#wall_${tileUid})" />`;
             svg += `<path d="M 10 9 H 90 M 10 91 H 90" stroke="#d8c6a1" stroke-width="1.2" opacity="0.62" />`;
         } else if (def.cityType === 'opposite') {
-            svg += `<path d="M 0 0 L 100 0 C 80 34, 20 34, 0 0 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" />`;
-            svg += `<path d="M 0 100 L 100 100 C 80 66, 20 66, 0 100 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" />`;
+            svg += `<path d="M 0 0 L 100 0 C 80 34, 20 34, 0 0 Z" fill="url(#wall_${tileUid})" />`;
+            svg += `<path d="M 0 100 L 100 100 C 80 66, 20 66, 0 100 Z" fill="url(#wall_${tileUid})" />`;
         } else if (def.cityType === 'separate-corners') {
             // Two independent cities: full north and east exits, separated by a visible pasture cleft.
-            svg += `<path d="M 4 0 H 96 V 4 C 83 9 67 16 51 25 C 36 34 22 39 12 33 C 8 30 6 27 4 25 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" />`;
-            svg += `<path d="M 100 4 V 96 H 75 C 68 91 65 81 67 70 C 70 54 77 38 84 26 C 89 16 94 8 100 4 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" />`;
+            svg += `<path d="M 4 0 H 96 V 4 C 83 9 67 16 51 25 C 36 34 22 39 12 33 C 8 30 6 27 4 25 Z" fill="url(#wall_${tileUid})" />`;
+            svg += `<path d="M 100 4 V 96 H 75 C 68 91 65 81 67 70 C 70 54 77 38 84 26 C 89 16 94 8 100 4 Z" fill="url(#wall_${tileUid})" />`;
         }
 
         // Hand-painted town artwork is clipped to the mathematical city boundary.
         if (cityClip) {
-            svg += `<image href="assets/carcassonne-city-v1.png" x="-2" y="-2" width="104" height="104" preserveAspectRatio="xMidYMid meet" clip-path="url(#city_clip_${tileUid})" opacity="0.92" />`;
+            svg += `<image href="assets/carcassonne-city-v1.png" x="-6" y="-5" width="112" height="108" preserveAspectRatio="xMidYMid meet" clip-path="url(#city_clip_${tileUid})" opacity="0.98" />`;
             svg += `<path d="${def.cityType === 'full' ? 'M 1 1 H 99 V 99 H 1 Z' : ''}" fill="none" stroke="#fff7d6" stroke-width="0.45" opacity="0.32" />`;
         }
 

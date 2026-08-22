@@ -28,6 +28,7 @@ const MIME_TYPES = {
     '.css': 'text/css; charset=utf-8',
     '.json': 'application/json',
     '.png': 'image/png',
+    '.webp': 'image/webp',
     '.jpg': 'image/jpeg',
     '.svg': 'image/svg+xml',
     '.ico': 'image/x-icon',
