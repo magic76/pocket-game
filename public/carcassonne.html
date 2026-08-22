@@ -16,11 +16,29 @@
             --tile-size: 100px;
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Serif TC", serif; user-select: none; -webkit-tap-highlight-color: transparent; }
-        html, body { width: 100%; max-width: 100vw; overflow-x: hidden; height: 100vh; background: var(--bg-color); color: var(--text-main); display: flex; flex-direction: column; }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Serif TC", serif;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        html, body {
+            width: 100%;
+            max-width: 100vw;
+            overflow: hidden;
+            height: 100vh;
+            background: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            touch-action: none;
+        }
 
         /* ========================================= */
-        /* TWO-ROW COMPACT TOP HEADER (100VW CLEAN)  */
+        /* TWO-ROW COMPACT TOP HEADER                */
         /* ========================================= */
         header.app-header {
             width: 100%;
@@ -35,6 +53,7 @@
             z-index: 100;
             box-shadow: 0 6px 20px rgba(0,0,0,0.8);
             overflow-x: hidden;
+            flex-shrink: 0;
         }
 
         .header-top-row {
@@ -80,7 +99,7 @@
         button {
             background: #2a1e14; color: #f1f5f9; border: 1px solid #4a3523;
             padding: 4px 7px; border-radius: 6px; font-size: 0.72rem; font-weight: 700;
-            cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 2px;
+            cursor: pointer; transition: transform 0.1s; display: flex; align-items: center; gap: 2px;
             white-space: nowrap; flex-shrink: 0;
             box-shadow: 0 2px 4px rgba(0,0,0,0.4);
         }
@@ -103,7 +122,6 @@
             display: flex;
             align-items: center;
             gap: 6px;
-            transition: all 0.2s;
             min-width: 0;
         }
         .player-card.active.red {
@@ -136,11 +154,6 @@
         .player-turn-indicator {
             font-size: 0.58rem; background: #f59e0b; color: #000;
             padding: 1px 3px; border-radius: 4px; font-weight: 900;
-            animation: pulseTurn 1s infinite alternate;
-        }
-        @keyframes pulseTurn {
-            from { opacity: 0.75; transform: scale(0.95); }
-            to { opacity: 1; transform: scale(1.05); }
         }
 
         .player-stats-line {
@@ -150,7 +163,7 @@
         .score-num { font-size: 0.85rem; font-weight: 900; color: #fff; }
 
         /* ========================================= */
-        /* RUSTIC OAK WOOD TABLETOP CANVAS           */
+        /* 60FPS HARDWARE ACCELERATED VIEWPORT       */
         /* ========================================= */
         #viewport {
             flex: 1;
@@ -165,6 +178,7 @@
             cursor: grab;
             width: 100%;
             max-width: 100vw;
+            touch-action: none;
         }
         #viewport:active { cursor: grabbing; }
 
@@ -172,18 +186,22 @@
             position: absolute;
             top: 0; left: 0;
             transform-origin: 0 0;
-            transition: transform 0.04s linear;
+            /* ZERO transition during drag for 1:1 silky response */
+            transition: none;
+            will-change: transform;
+            backface-visibility: hidden;
+            transform: translate3d(0, 0, 0);
         }
 
         /* 3D Physical Cardboard Punchboard Tiles */
         .map-tile {
             position: absolute;
             width: 100px; height: 100px;
-            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+            contain: paint layout;
+            backface-visibility: hidden;
         }
         .map-tile.just-placed {
-            animation: tileDrop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            animation: tileDrop 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             z-index: 5;
         }
         @keyframes tileDrop {
@@ -197,13 +215,13 @@
             position: absolute;
             width: 32px; height: 32px;
             z-index: 15;
-            filter: drop-shadow(0 8px 10px rgba(0,0,0,0.95));
-            animation: meepleLand 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            animation: meepleLand 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             pointer-events: none;
             transform: translate(-50%, -50%);
+            contain: paint;
         }
         @keyframes meepleLand {
-            0% { transform: translate(-50%, -100%) scale(1.6); opacity: 0; }
+            0% { transform: translate(-50%, -100%) scale(1.5); opacity: 0; }
             100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
         }
 
@@ -213,21 +231,16 @@
             width: 100px; height: 100px;
             border-radius: 6px;
             border: 2px dashed rgba(245, 158, 11, 0.85);
-            background: rgba(245, 158, 11, 0.18);
+            background: rgba(245, 158, 11, 0.16);
             display: flex; align-items: center; justify-content: center;
             cursor: pointer; z-index: 20;
-            animation: pulseSlot 1.4s infinite alternate;
+            contain: layout paint;
         }
         .placement-slot:hover {
-            background: rgba(245, 158, 11, 0.4);
+            background: rgba(245, 158, 11, 0.38);
             border-color: #fbbf24;
-            transform: scale(1.04);
         }
-        .slot-plus { font-size: 2.2rem; color: #fbbf24; font-weight: 900; text-shadow: 0 0 10px rgba(251, 191, 36, 0.6); }
-        @keyframes pulseSlot {
-            0% { transform: scale(0.97); opacity: 0.7; }
-            100% { transform: scale(1.02); opacity: 1; box-shadow: 0 0 20px rgba(245, 158, 11, 0.55); }
-        }
+        .slot-plus { font-size: 2.2rem; color: #fbbf24; font-weight: 900; text-shadow: 0 0 8px rgba(251, 191, 36, 0.6); }
 
         /* Meeple Picker Overlay Dialog */
         .meeple-picker-overlay {
@@ -242,7 +255,7 @@
             display: flex; flex-direction: column; gap: 8px;
             z-index: 500;
             box-shadow: 0 14px 35px rgba(0,0,0,0.9);
-            animation: tileDrop 0.25s;
+            animation: tileDrop 0.22s;
             min-width: 200px;
         }
         .meeple-picker-title { font-size: 0.8rem; font-weight: 800; color: var(--accent-gold); text-align: center; }
@@ -291,7 +304,7 @@
             display: flex; align-items: center; justify-content: center;
             overflow: hidden; flex-shrink: 0;
         }
-        .tile-rotator { width: 100%; height: 100%; transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .tile-rotator { width: 100%; height: 100%; transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1); }
         .hud-info { display: flex; flex-direction: column; gap: 2px; }
         .hud-title { font-size: 0.85rem; font-weight: 800; color: #fde047; }
         .hud-desc { font-size: 0.7rem; color: var(--text-muted); }
@@ -332,9 +345,9 @@
         .gallery-item {
             background: #110b07; border: 1.5px solid #38281a;
             border-radius: 8px; padding: 6px; display: flex; flex-direction: column;
-            align-items: center; gap: 4px; cursor: pointer; transition: all 0.15s;
+            align-items: center; gap: 4px; cursor: pointer; transition: transform 0.15s;
         }
-        .gallery-item:hover { transform: scale(1.08); border-color: var(--accent-gold); background: #261a10; }
+        .gallery-item:hover { transform: scale(1.06); border-color: var(--accent-gold); background: #261a10; }
         .gallery-item-name { font-size: 0.65rem; color: var(--text-muted); text-align: center; font-weight: 700; }
 
         /* Toast */
@@ -412,7 +425,7 @@
     </div>
 </header>
 
-<!-- Infinite Canvas Viewport -->
+<!-- 60FPS Hardware Accelerated Viewport -->
 <div id="viewport">
     <div id="world">
         <!-- Rendered Tiles, Placement Slots, and Meeples injected here -->
@@ -526,9 +539,9 @@
     const audio = new SoundFX();
 
     // ==========================================
-    // 🎨 COMMERCIAL BOARD-GAME ART ENGINE
+    // 🎨 HIGH-PERFORMANCE BOARD-GAME ART ENGINE
     // ==========================================
-    let currentMapTheme = 'classic'; // 'classic' | 'warm_oil' | 'autumn' | 'parchment'
+    let currentMapTheme = 'classic';
 
     const THEME_PALETTES = {
         classic: {
@@ -588,7 +601,6 @@
         showToast(`🎨 地圖已套用【${THEME_PALETTES[newTheme].name}】質感！`);
     }
 
-    // 24 ARCHETYPES: Correct edges [North, East, South, West]
     const TILE_DEFS = {
         'A': { name: '修道院 (南出路)', edges: ['F','F','R','F'], hasMonastery: true, roadType: 'south' },
         'B': { name: '皇家大修道院', edges: ['F','F','F','F'], hasMonastery: true },
@@ -639,9 +651,6 @@
                     <stop offset="60%" stop-color="${p.roofClay[1]}" />
                     <stop offset="100%" stop-color="${p.roofClay[2]}" />
                 </linearGradient>
-                <filter id="wallShadow_${tileUid}" x="-20%" y="-20%" width="140%" height="140%">
-                    <feDropShadow dx="0" dy="3.5" stdDeviation="2.5" flood-color="#000" flood-opacity="0.55" />
-                </filter>
             </defs>
         `;
 
@@ -651,16 +660,16 @@
         // Organic Farmland Furrows & Grass Texture Details
         svg += `
             <path d="M 8 15 Q 25 12 38 16 M 12 24 Q 28 20 42 25 M 65 78 Q 80 75 92 80 M 60 86 Q 76 83 88 88" stroke="${p.furrowColor}" stroke-width="0.8" fill="none" opacity="0.6" />
-            <!-- Trees & Bushes with Realistic Tree Trunks & Foliage -->
+            <!-- Trees & Bushes -->
             <g transform="translate(18, 18)">
-                <ellipse cx="2" cy="3" rx="6" ry="4" fill="#000" opacity="0.3" />
+                <ellipse cx="2" cy="3" rx="6" ry="4" fill="#000" opacity="0.25" />
                 <rect x="-1" y="0" width="2" height="4" fill="#4a2e12" />
                 <circle cx="0" cy="-2" r="5" fill="${p.foliage[0]}" />
                 <circle cx="3" cy="-3" r="3.8" fill="${p.foliage[1]}" />
                 <circle cx="-3" cy="-1" r="3.5" fill="${p.foliage[2]}" />
             </g>
             <g transform="translate(82, 80)">
-                <ellipse cx="2" cy="3" rx="6" ry="4" fill="#000" opacity="0.3" />
+                <ellipse cx="2" cy="3" rx="6" ry="4" fill="#000" opacity="0.25" />
                 <rect x="-1" y="0" width="2" height="4" fill="#4a2e12" />
                 <circle cx="0" cy="-2" r="5.2" fill="${p.foliage[0]}" />
                 <circle cx="-3" cy="-3" r="4" fill="${p.foliage[1]}" />
@@ -675,9 +684,11 @@
             </g>
         `;
 
-        // 2. High-Detail Castle / Fortress Walls with German Half-Timbered Houses
+        // 2. High-Detail Castle / Fortress Walls with Baked Vector Shadows (Zero GPU Filter Cost)
         if (def.cityType === 'north') {
-            svg += `<path d="M 0 0 L 100 0 C 80 44, 20 44, 0 0 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" filter="url(#wallShadow_${tileUid})" />`;
+            // Baked Ambient Wall Shadow
+            svg += `<path d="M 0 0 L 100 0 C 80 48, 20 48, 0 0 Z" fill="#000" opacity="0.32" />`;
+            svg += `<path d="M 0 0 L 100 0 C 80 44, 20 44, 0 0 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" />`;
             svg += `<path d="M 6 10 L 18 10 L 18 2 M 32 10 L 44 10 L 44 2 M 58 10 L 70 10 L 70 2 M 84 10 L 94 10 L 94 2" stroke="#1c242c" stroke-width="2" fill="none" />`;
             svg += `<path d="M 22 22 L 78 22 M 16 32 L 84 32 M 35 22 L 35 32 M 65 22 L 65 32" stroke="#36424e" stroke-width="0.8" fill="none" opacity="0.6" />`;
             svg += `
@@ -703,8 +714,9 @@
                 </g>
             `;
         } else if (def.cityType === 'corner') {
-            // CORNER CASTLE: Connects NORTH (y=0) and EAST (x=100)
-            svg += `<path d="M 0 0 L 100 0 L 100 100 C 60 72, 28 40, 0 0 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" filter="url(#wallShadow_${tileUid})" />`;
+            // CORNER CASTLE: North & East
+            svg += `<path d="M 0 0 L 100 0 L 100 100 C 58 76, 26 44, 0 0 Z" fill="#000" opacity="0.32" />`;
+            svg += `<path d="M 0 0 L 100 0 L 100 100 C 60 72, 28 40, 0 0 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" />`;
             svg += `
                 <g transform="translate(42, 14)">
                     <rect x="0" y="8" width="16" height="11" fill="#f8fafc" stroke="#475569" stroke-width="1" />
@@ -716,8 +728,8 @@
                 </g>
             `;
         } else if (def.cityType === 'three-sides') {
-            // THREE SIDES: Connects NORTH, EAST, and WEST (South is Field/Road)
-            svg += `<path d="M 0 0 L 100 0 L 100 100 C 80 50, 65 68, 50 68 C 35 68, 20 50, 0 100 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" filter="url(#wallShadow_${tileUid})" />`;
+            svg += `<path d="M 0 0 L 100 0 L 100 100 C 80 54, 65 72, 50 72 C 35 72, 20 54, 0 100 Z" fill="#000" opacity="0.32" />`;
+            svg += `<path d="M 0 0 L 100 0 L 100 100 C 80 50, 65 68, 50 68 C 35 68, 20 50, 0 100 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" />`;
             svg += `
                 <g transform="translate(30, 20)">
                     <rect x="4" y="12" width="32" height="20" fill="#f8fafc" stroke="#475569" stroke-width="1" />
@@ -726,7 +738,8 @@
                 </g>
             `;
         } else if (def.cityType === 'bridge') {
-            svg += `<path d="M 0 28 C 40 28, 60 28, 100 28 L 100 72 C 60 72, 40 72, 0 72 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" filter="url(#wallShadow_${tileUid})" />`;
+            svg += `<path d="M 0 28 C 40 28, 60 28, 100 28 L 100 76 C 60 76, 40 76, 0 76 Z" fill="#000" opacity="0.32" />`;
+            svg += `<path d="M 0 28 C 40 28, 60 28, 100 28 L 100 72 C 60 72, 40 72, 0 72 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" />`;
             svg += `
                 <g transform="translate(36, 34)">
                     <rect x="0" y="8" width="28" height="15" fill="#f8fafc" stroke="#475569" stroke-width="1.2" />
@@ -734,16 +747,14 @@
                 </g>
             `;
         } else if (def.cityType === 'opposite') {
-            // NORTH & SOUTH separate cities
-            svg += `<path d="M 0 0 L 100 0 C 80 34, 20 34, 0 0 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" filter="url(#wallShadow_${tileUid})" />`;
-            svg += `<path d="M 0 100 L 100 100 C 80 66, 20 66, 0 100 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" filter="url(#wallShadow_${tileUid})" />`;
+            svg += `<path d="M 0 0 L 100 0 C 80 34, 20 34, 0 0 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" />`;
+            svg += `<path d="M 0 100 L 100 100 C 80 66, 20 66, 0 100 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" />`;
         } else if (def.cityType === 'separate-corners') {
-            // NORTH & EAST separate corner walls
-            svg += `<path d="M 0 0 L 60 0 C 40 24, 18 24, 0 0 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" filter="url(#wallShadow_${tileUid})" />`;
-            svg += `<path d="M 100 40 L 100 100 C 76 82, 76 60, 100 40 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" filter="url(#wallShadow_${tileUid})" />`;
+            svg += `<path d="M 0 0 L 60 0 C 40 24, 18 24, 0 0 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" />`;
+            svg += `<path d="M 100 40 L 100 100 C 76 82, 76 60, 100 40 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" />`;
         }
 
-        // Royal Crest / Shield with 3D Embossing (Positioned properly based on cityType)
+        // Royal Crest / Shield with 3D Embossing
         if (def.shield) {
             let sx = 50, sy = 20;
             if (def.cityType === 'corner') { sx = 66; sy = 28; }
@@ -791,7 +802,6 @@
         } else if (def.roadType === 'crossroad') {
             svg += `<path d="M 0 50 L 100 50 M 50 0 L 50 100" stroke="${p.roadTrack}" stroke-width="15" fill="none" />`;
             svg += `<path d="M 0 50 L 100 50 M 50 0 L 50 100" stroke="${p.roadSand}" stroke-width="11" fill="none" />`;
-            // Medieval Stone Village Well
             svg += `
                 <g transform="translate(50, 50)">
                     <circle cx="0" cy="0" r="10" fill="#475569" stroke="#1e293b" stroke-width="1.8" />
@@ -806,14 +816,12 @@
         if (def.hasMonastery) {
             svg += `
                 <g transform="translate(50, 48)">
-                    <!-- Pine and cypress trees surrounding monastery -->
                     <g transform="translate(-24, -8)"><circle cx="0" cy="0" r="6.5" fill="${p.foliage[0]}" /><circle cx="2" cy="-2" r="4.5" fill="${p.foliage[1]}" /></g>
                     <g transform="translate(24, -8)"><circle cx="0" cy="0" r="6.5" fill="${p.foliage[0]}" /><circle cx="-2" cy="-2" r="4.5" fill="${p.foliage[1]}" /></g>
                     <g transform="translate(-20, 18)"><circle cx="0" cy="0" r="5.5" fill="${p.foliage[0]}" /></g>
                     <g transform="translate(20, 18)"><circle cx="0" cy="0" r="5.5" fill="${p.foliage[0]}" /></g>
 
-                    <rect x="-18" y="-12" width="36" height="30" fill="#f8fafc" stroke="#475569" stroke-width="1.8" rx="2" filter="url(#wallShadow_${tileUid})" />
-                    <!-- Rose Stained-Glass Window -->
+                    <rect x="-18" y="-12" width="36" height="30" fill="#f8fafc" stroke="#475569" stroke-width="1.8" rx="2" />
                     <circle cx="0" cy="0" r="4.5" fill="#38bdf8" stroke="#1e293b" stroke-width="1.2" />
                     <line x1="-4.5" y1="0" x2="4.5" y2="0" stroke="#1e293b" stroke-width="0.8" />
                     <line x1="0" y1="-4.5" x2="0" y2="4.5" stroke="#1e293b" stroke-width="0.8" />
@@ -864,7 +872,7 @@
     }
 
     // ==========================================
-    // 🗺️ MAP ENGINE & GAME STATE
+    // 🗺️ 60FPS SMOOTH PAN & PINCH ENGINE
     // ==========================================
     const TILE_SIZE = 100;
     const gridMap = new Map();
@@ -879,14 +887,26 @@
     let panY = window.innerHeight / 2 - 50;
     let isDragging = false;
     let dragStartX = 0, dragStartY = 0;
+    let isTicking = false;
+    let touchStartDist = 0;
+    let touchStartScale = 1;
 
     const viewportEl = document.getElementById('viewport');
     const worldEl = document.getElementById('world');
 
     function applyTransform() {
-        worldEl.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+        worldEl.style.transform = `translate3d(${panX}px, ${panY}px, 0) scale(${scale})`;
+        isTicking = false;
     }
 
+    function requestRender() {
+        if (!isTicking) {
+            requestAnimationFrame(applyTransform);
+            isTicking = true;
+        }
+    }
+
+    // Mouse Events
     viewportEl.addEventListener('mousedown', (e) => {
         if (e.target.closest('.placement-slot') || e.target.closest('.hud-overlay') || e.target.closest('.meeple-picker-overlay')) return;
         isDragging = true;
@@ -897,39 +917,66 @@
         if (!isDragging) return;
         panX = e.clientX - dragStartX;
         panY = e.clientY - dragStartY;
-        applyTransform();
+        requestRender();
     });
     window.addEventListener('mouseup', () => { isDragging = false; });
 
+    // Touch Events (Single-finger pan + Two-finger pinch zoom)
     viewportEl.addEventListener('touchstart', (e) => {
         if (e.touches.length === 1) {
             isDragging = true;
             dragStartX = e.touches[0].clientX - panX;
             dragStartY = e.touches[0].clientY - panY;
+        } else if (e.touches.length === 2) {
+            isDragging = false;
+            touchStartDist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            touchStartScale = scale;
         }
-    }, { passive: true });
+    }, { passive: false });
+
     window.addEventListener('touchmove', (e) => {
-        if (!isDragging || e.touches.length !== 1) return;
-        panX = e.touches[0].clientX - dragStartX;
-        panY = e.touches[0].clientY - dragStartY;
-        applyTransform();
-    }, { passive: true });
-    window.addEventListener('touchend', () => { isDragging = false; });
+        if (e.touches.length === 1 && isDragging) {
+            panX = e.touches[0].clientX - dragStartX;
+            panY = e.touches[0].clientY - dragStartY;
+            requestRender();
+        } else if (e.touches.length === 2 && touchStartDist > 0) {
+            const dist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            scale = Math.min(Math.max(0.35, touchStartScale * (dist / touchStartDist)), 2.2);
+            requestRender();
+        }
+    }, { passive: false });
+
+    window.addEventListener('touchend', (e) => {
+        if (e.touches.length === 0) {
+            isDragging = false;
+            touchStartDist = 0;
+        } else if (e.touches.length === 1) {
+            isDragging = true;
+            dragStartX = e.touches[0].clientX - panX;
+            dragStartY = e.touches[0].clientY - panY;
+        }
+    }, { passive: false });
 
     viewportEl.addEventListener('wheel', (e) => {
         e.preventDefault();
         const delta = e.deltaY > 0 ? -0.1 : 0.1;
         scale = Math.min(Math.max(0.35, scale + delta), 2.2);
-        applyTransform();
+        requestRender();
     }, { passive: false });
 
-    function zoomIn() { scale = Math.min(2.2, scale + 0.2); applyTransform(); }
-    function zoomOut() { scale = Math.max(0.35, scale - 0.2); applyTransform(); }
+    function zoomIn() { scale = Math.min(2.2, scale + 0.2); requestRender(); }
+    function zoomOut() { scale = Math.max(0.35, scale - 0.2); requestRender(); }
     function resetView() {
         scale = 0.95;
         panX = window.innerWidth / 2 - 50;
         panY = window.innerHeight / 2 - 50;
-        applyTransform();
+        requestRender();
     }
 
     // ==========================================
