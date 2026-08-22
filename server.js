@@ -136,7 +136,8 @@ function getRoomPublicState(room) {
         spectatorCount: room.spectators.length,
         lastMove: room.lastMove || null,
         capturedCount: room.capturedCount || { black: 0, white: 0 },
-        scores: room.scores || null
+        scores: room.scores || null,
+        carcassonneState: room.carcassonneState || null
     };
 }
 
@@ -157,17 +158,21 @@ wss.on('connection', (ws) => {
                 const { gameType, playerCount, name } = data;
                 playerName = name || '房主';
                 const roomId = generateRoomId();
+                const normalizedPlayerCount = gameType === 'carcassonne'
+                    ? Math.max(2, Math.min(4, Number(playerCount) || 2))
+                    : (playerCount || 2);
 
                 let initialTurn = 'black';
                 if (gameType === 'xiangqi' || gameType === 'checkers' || gameType === 'connect4') initialTurn = 'red';
                 else if (gameType === 'chess') initialTurn = 'white';
                 else if (gameType === 'uttt') initialTurn = 'X';
                 else if (gameType === 'blokus') initialTurn = 'blue';
+                else if (gameType === 'carcassonne') initialTurn = 'red';
 
                 const newRoom = {
                     id: roomId,
                     gameType: gameType || 'gomoku',
-                    playerCount: playerCount || 2,
+                    playerCount: normalizedPlayerCount,
                     board: null,
                     subBoards: null,
                     mainBoard: null,
@@ -185,6 +190,7 @@ wss.on('connection', (ws) => {
                     spectators: [],
                     moveHistory: [],
                     lastMove: null,
+                    carcassonneState: null,
                     lastActivity: Date.now()
                 };
 
@@ -202,7 +208,7 @@ wss.on('connection', (ws) => {
             }
 
             else if (type === 'join_room') {
-                const { roomId, name } = data;
+                const { roomId, name, rejoinRole } = data;
                 playerName = name || '訪客';
                 const room = rooms.get(roomId);
 
@@ -214,7 +220,10 @@ wss.on('connection', (ws) => {
                 currentRoomId = roomId;
                 room.lastActivity = Date.now();
 
-                if (!room.players.black) {
+                if (rejoinRole && room.players[rejoinRole]?.name === playerName) {
+                    room.players[rejoinRole] = { ws, name: playerName, ready: true };
+                    currentRole = rejoinRole;
+                } else if (!room.players.black) {
                     room.players.black = { ws, name: playerName, ready: true };
                     currentRole = 'black';
                 } else if (!room.players.white) {
@@ -257,6 +266,29 @@ wss.on('connection', (ws) => {
                 console.log(`[Room ${roomId}] ${playerName} joined as ${currentRole}`);
             }
 
+            else if (type === 'carcassonne_init' || type === 'carcassonne_sync') {
+                if (!currentRoomId) return;
+                const room = rooms.get(currentRoomId);
+                if (!room || room.gameType !== 'carcassonne' || !data.state) return;
+
+                const roleToPlayer = { black: 'red', white: 'blue', blue: 'green', green: 'yellow' };
+                if (type === 'carcassonne_init') {
+                    if (currentRole !== 'black' || room.carcassonneState) return;
+                } else {
+                    if (currentRole === 'spectator' || roleToPlayer[currentRole] !== data.actorPlayer || room.carcassonneState?.activePlayer !== data.actorPlayer) return;
+                }
+
+                room.carcassonneState = data.state;
+                room.turn = data.state.activePlayer;
+                room.scores = data.state.scores;
+                room.status = data.state.turnPhase === 'GAME_OVER' ? 'ended' : room.status;
+                room.lastActivity = Date.now();
+                broadcastToRoom(room, {
+                    type: 'carcassonne_state',
+                    roomState: getRoomPublicState(room)
+                });
+            }
+
             else if (type === 'move') {
                 if (!currentRoomId) return;
                 const room = rooms.get(currentRoomId);
@@ -292,12 +324,14 @@ wss.on('connection', (ws) => {
                 const room = rooms.get(currentRoomId);
                 if (!room) return;
 
-                const initialTurn = (room.gameType === 'xiangqi') ? 'red' : (room.gameType === 'chess' ? 'white' : 'black');
+                const initialTurn = (room.gameType === 'xiangqi' || room.gameType === 'carcassonne') ? 'red' : (room.gameType === 'chess' ? 'white' : 'black');
                 room.board = null;
+                room.carcassonneState = null;
                 room.turn = initialTurn;
                 room.winner = null;
                 room.lastMove = null;
-                room.status = (room.players.black && room.players.white) ? 'playing' : 'waiting';
+                const requiredRoles = ['black', 'white', 'blue', 'green'].slice(0, room.playerCount || 2);
+                room.status = requiredRoles.every(role => room.players[role]) ? 'playing' : 'waiting';
                 room.moveHistory = [];
                 room.lastActivity = Date.now();
 
@@ -342,23 +376,33 @@ wss.on('connection', (ws) => {
         if (!currentRoomId) return;
         const room = rooms.get(currentRoomId);
         if (!room) return;
+        let didLeave = false;
 
-        if (currentRole === 'black') {
+        if (currentRole === 'black' && room.players.black?.ws === ws) {
             room.players.black = null;
-        } else if (currentRole === 'white') {
+            didLeave = true;
+        } else if (currentRole === 'white' && room.players.white?.ws === ws) {
             room.players.white = null;
+            didLeave = true;
+        } else if (currentRole === 'blue' && room.players.blue?.ws === ws) {
+            room.players.blue = null;
+            didLeave = true;
+        } else if (currentRole === 'green' && room.players.green?.ws === ws) {
+            room.players.green = null;
+            didLeave = true;
         } else if (currentRole === 'spectator') {
             room.spectators = room.spectators.filter(s => s.ws !== ws);
+            didLeave = true;
         }
 
-        if (!room.players.black && !room.players.white && room.spectators.length === 0) {
+        if (!room.players.black && !room.players.white && !room.players.blue && !room.players.green && room.spectators.length === 0) {
             setTimeout(() => {
                 const check = rooms.get(currentRoomId);
-                if (check && !check.players.black && !check.players.white && check.spectators.length === 0) {
+                if (check && !check.players.black && !check.players.white && !check.players.blue && !check.players.green && check.spectators.length === 0) {
                     rooms.delete(currentRoomId);
                 }
             }, 300000);
-        } else {
+        } else if (didLeave) {
             broadcastToRoom(room, {
                 type: 'player_left',
                 name: playerName,
@@ -402,7 +446,7 @@ function startServer(portToTry) {
         const serverUrl = `http://${primaryIp}:${PORT}`;
 
         console.log('\n======================================================');
-        console.log('  ✈️  機上離線棋藝盒 (Pocket Game Hub 8-in-1)');
+        console.log('  ✈️  機上離線棋藝盒 (Pocket Game Hub 9-in-1)');
         console.log('======================================================');
         console.log(`🚀 本地伺服器已啟動於連接埠: ${PORT}`);
         console.log(`📱 本機遊玩網址:  http://localhost:${PORT}`);

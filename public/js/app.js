@@ -1,12 +1,13 @@
-// Main Application Controller & Network Client (8-in-1 Game Hub)
+// Main Application Controller & Network Client (9-in-1 Game Hub; Carcassonne launches as its own board view)
 class PocketApp {
     constructor() {
-        this.selectedGame = 'gomoku'; // 'gomoku' | 'reversi' | 'xiangqi' | 'chess' | 'checkers' | 'connect4' | 'uttt' | 'blokus'
+        this.selectedGame = 'gomoku'; // Hub engines: gomoku | reversi | xiangqi | chess | checkers | connect4 | uttt | blokus
         this.currentMode = 'online';  // 'online' | 'hotseat' | 'ai'
         this.playerName = localStorage.getItem('pocket_player_name') || '特勤隊員';
         this.hotseatFlip = true;
         this.checkersPlayerCount = 2; // 2 or 3 players
         this.blokusPlayerCount = 2;   // 2 or 4 players
+        this.carcassonnePlayerCount = 2; // 2 to 4 players
 
         // Online State
         this.ws = null;
@@ -14,7 +15,7 @@ class PocketApp {
         this.myRole = null;
         this.roomState = null;
 
-        // Game Engines (8-in-1)
+        // Game engines; Carcassonne owns its dedicated page and turn engine.
         this.engines = {
             gomoku: new GomokuEngine(15),
             reversi: new ReversiEngine(8),
@@ -86,8 +87,10 @@ class PocketApp {
             cardConnect4: document.getElementById('card-connect4'),
             cardUttt: document.getElementById('card-uttt'),
             cardBlokus: document.getElementById('card-blokus'),
+            cardCarcassonne: document.getElementById('card-carcassonne'),
             checkersCountBox: document.getElementById('checkers-count-box'),
             blokusCountBox: document.getElementById('blokus-count-box'),
+            carcassonneCountBox: document.getElementById('carcassonne-count-box'),
             onlinePanel: document.getElementById('online-panel'),
             hotseatPanel: document.getElementById('hotseat-panel'),
             aiPanel: document.getElementById('ai-panel')
@@ -119,7 +122,7 @@ class PocketApp {
         this.selectedGame = game;
         const cards = [
             'cardGomoku', 'cardReversi', 'cardXiangqi', 'cardChess',
-            'cardCheckers', 'cardConnect4', 'cardUttt', 'cardBlokus'
+            'cardCheckers', 'cardConnect4', 'cardUttt', 'cardBlokus', 'cardCarcassonne'
         ];
         
         cards.forEach(c => {
@@ -135,6 +138,12 @@ class PocketApp {
         if (this.dom.blokusCountBox) {
             this.dom.blokusCountBox.classList.toggle('hidden', game !== 'blokus');
         }
+        if (this.dom.carcassonneCountBox) {
+            this.dom.carcassonneCountBox.classList.toggle('hidden', game !== 'carcassonne');
+        }
+        const aiPill = document.querySelector('.mode-pill[data-mode="ai"]');
+        if (aiPill) aiPill.classList.toggle('hidden', game === 'carcassonne');
+        if (game === 'carcassonne' && this.currentMode === 'ai') this.selectMode('online');
 
         window.sounds.playPing();
     }
@@ -154,6 +163,14 @@ class PocketApp {
             el.classList.toggle('active', parseInt(el.dataset.count, 10) === count);
         });
         this.engines.blokus = new BlokusEngine(count);
+        window.sounds.playPing();
+    }
+
+    setCarcassonneCount(count) {
+        this.carcassonnePlayerCount = count;
+        document.querySelectorAll('.carcassonne-pill').forEach(el => {
+            el.classList.toggle('active', parseInt(el.dataset.count, 10) === count);
+        });
         window.sounds.playPing();
     }
 
@@ -210,8 +227,9 @@ class PocketApp {
 
     createOnlineRoom() {
         this.connectWS(() => {
-            const pCount = this.selectedGame === 'checkers' ? this.checkersPlayerCount : 
-                          (this.selectedGame === 'blokus' ? this.blokusPlayerCount : 2);
+            const pCount = this.selectedGame === 'checkers' ? this.checkersPlayerCount :
+                          (this.selectedGame === 'blokus' ? this.blokusPlayerCount :
+                          (this.selectedGame === 'carcassonne' ? this.carcassonnePlayerCount : 2));
             this.ws.send(JSON.stringify({
                 type: 'create_room',
                 gameType: this.selectedGame,
@@ -245,6 +263,10 @@ class PocketApp {
             this.myRole = data.role;
             this.roomState = data.roomState;
             this.selectedGame = data.roomState.gameType;
+            if (this.selectedGame === 'carcassonne') {
+                this.openCarcassonneRoom(data.roomId, 'online', data.roomState.playerCount, data.role);
+                return;
+            }
             this.activeEngine.reset();
             this.enterGameView();
             this.showQRModal();
@@ -256,6 +278,10 @@ class PocketApp {
             this.myRole = data.role;
             this.roomState = data.roomState;
             this.selectedGame = data.roomState.gameType;
+            if (this.selectedGame === 'carcassonne') {
+                this.openCarcassonneRoom(data.roomId, 'online', data.roomState.playerCount, data.role);
+                return;
+            }
             this.activeEngine.reset();
             this.enterGameView();
             this.renderOnlineBoard();
@@ -354,10 +380,26 @@ class PocketApp {
         window.sounds.playPing();
     }
 
+    openCarcassonneRoom(roomId, mode, playerCount, rejoinRole = null) {
+        const params = new URLSearchParams({
+            mode,
+            players: String(playerCount),
+            name: this.playerName
+        });
+        if (roomId) params.set('room', roomId);
+        if (rejoinRole) params.set('rejoinRole', rejoinRole);
+        // Carcassonne owns its map renderer and synchronised turn engine.
+        window.location.href = `carcassonne.html?${params.toString()}`;
+    }
+
     // ==========================================
     // 🪑 LOCAL & AI MODES
     // ==========================================
     startHotseatGame() {
+        if (this.selectedGame === 'carcassonne') {
+            this.openCarcassonneRoom(null, 'hotseat', this.carcassonnePlayerCount);
+            return;
+        }
         this.currentMode = 'hotseat';
         this.myRole = 'local';
         this.activeEngine.reset();
@@ -371,6 +413,10 @@ class PocketApp {
     }
 
     startAIGame() {
+        if (this.selectedGame === 'carcassonne') {
+            this.showToast('卡卡頌目前支援同機與多人連線模式');
+            return;
+        }
         this.currentMode = 'ai';
         this.myRole = 'p1';
         this.activeEngine.reset();

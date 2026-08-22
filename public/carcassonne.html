@@ -29,6 +29,7 @@
             width: 100%;
             max-width: 100vw;
             overflow: hidden;
+            overscroll-behavior: none;
             height: 100vh;
             height: 100dvh;
             background: var(--bg-color);
@@ -37,6 +38,7 @@
             flex-direction: column;
             touch-action: none;
         }
+        body { position: fixed; inset: 0; }
 
         /* ========================================= */
         /* TWO-ROW COMPACT TOP HEADER                */
@@ -140,6 +142,18 @@
             box-shadow: 0 0 14px rgba(59, 130, 246, 0.5);
             transform: scale(1.02);
         }
+        .player-card.active.green {
+            border-color: #22c55e;
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.34), #140e08);
+            box-shadow: 0 0 14px rgba(34, 197, 94, 0.48);
+            transform: scale(1.02);
+        }
+        .player-card.active.yellow {
+            border-color: #eab308;
+            background: linear-gradient(135deg, rgba(234, 179, 8, 0.3), #140e08);
+            box-shadow: 0 0 14px rgba(234, 179, 8, 0.42);
+            transform: scale(1.02);
+        }
 
         .player-badge-icon {
             width: 24px; height: 24px; border-radius: 6px;
@@ -149,6 +163,8 @@
         }
         .player-badge-icon.red { background: linear-gradient(135deg, #dc2626, #7f1d1d); }
         .player-badge-icon.blue { background: linear-gradient(135deg, #2563eb, #1e3a8a); }
+        .player-badge-icon.green { background: linear-gradient(135deg, #22c55e, #166534); }
+        .player-badge-icon.yellow { background: linear-gradient(135deg, #eab308, #854d0e); }
 
         .player-info { flex: 1; min-width: 0; }
         .player-title-line {
@@ -157,6 +173,8 @@
         }
         .player-title-line.red { color: #fca5a5; }
         .player-title-line.blue { color: #93c5fd; }
+        .player-title-line.green { color: #86efac; }
+        .player-title-line.yellow { color: #fde68a; }
         .player-turn-indicator {
             font-size: 0.58rem; background: #f59e0b; color: #000;
             padding: 1px 3px; border-radius: 4px; font-weight: 900;
@@ -179,17 +197,18 @@
         #viewport {
             flex: 1;
             position: relative;
-            background: #140d07;
+            background: #24341b;
             background-image: 
-                radial-gradient(circle at 50% 50%, rgba(35, 23, 13, 0.6) 0%, rgba(10, 6, 3, 0.95) 100%),
-                linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
-            background-size: 100% 100%, 50px 50px, 50px 50px;
+                radial-gradient(circle at 50% 46%, rgba(172, 195, 105, 0.22) 0%, rgba(51, 74, 33, 0.16) 48%, rgba(18, 28, 15, 0.7) 100%),
+                repeating-linear-gradient(35deg, rgba(255,255,255,0.018) 0 1px, transparent 1px 10px);
+            background-size: 100% 100%, auto;
+            background-position: center, center;
             overflow: hidden;
             cursor: grab;
             width: 100%;
             max-width: 100vw;
             touch-action: none;
+            overscroll-behavior: none;
         }
         #viewport:active { cursor: grabbing; }
 
@@ -202,6 +221,21 @@
             backface-visibility: hidden;
             transform: translate3d(0, 0, 0);
         }
+        .world-terrain {
+            position: absolute;
+            left: -6000px;
+            top: -6000px;
+            width: 12000px;
+            height: 12000px;
+            z-index: 0;
+            pointer-events: none;
+            background-color: #6f8e3d;
+            background-image:
+                linear-gradient(rgba(29, 47, 20, 0.08), rgba(29, 47, 20, 0.08)),
+                url('assets/carcassonne-pasture-v1.png');
+            background-size: auto, 800px 800px;
+            background-position: 0 0, 6000px 6000px;
+        }
 
         /* 3D Physical Cardboard Punchboard Tiles */
         .map-tile {
@@ -209,6 +243,10 @@
             width: 100px; height: 100px;
             contain: paint layout;
             backface-visibility: hidden;
+            overflow: hidden;
+            border-radius: 2px;
+            box-shadow: inset 0 0 0 1px rgba(45, 58, 28, 0.16);
+            z-index: 1;
         }
         .map-tile.just-placed {
             animation: tileDrop 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -242,18 +280,21 @@
         .placement-slot {
             position: absolute;
             width: 100px; height: 100px;
-            border-radius: 6px;
-            border: 2px dashed rgba(245, 158, 11, 0.85);
-            background: rgba(245, 158, 11, 0.16);
+            border-radius: 4px;
+            border: 2px dashed rgba(253, 224, 71, 0.9);
+            background: rgba(253, 224, 71, 0.08);
             display: flex; align-items: center; justify-content: center;
             cursor: pointer; z-index: 20;
             contain: layout paint;
+            overflow: hidden;
+            box-shadow: 0 0 0 2px rgba(29, 38, 18, 0.25), 0 0 18px rgba(253, 224, 71, 0.22);
         }
         .placement-slot:hover {
-            background: rgba(245, 158, 11, 0.38);
-            border-color: #fbbf24;
+            background: rgba(253, 224, 71, 0.2);
+            border-color: #fff7a8;
         }
-        .slot-plus { font-size: 2.2rem; color: #fbbf24; font-weight: 900; text-shadow: 0 0 8px rgba(251, 191, 36, 0.6); }
+        .placement-slot svg { opacity: 0.52; filter: saturate(0.78) brightness(1.12); pointer-events: none; }
+        .slot-plus { position: absolute; font-size: 1.7rem; color: #fff7a8; font-weight: 900; text-shadow: 0 0 8px rgba(0,0,0,0.75); pointer-events: none; }
 
         /* Floating Score Popups */
         .score-popup {
@@ -289,7 +330,7 @@
             gap: 10px;
             box-shadow: 0 8px 30px rgba(0,0,0,0.9);
             z-index: 100;
-            max-width: 96%;
+            max-width: 94%;
             width: auto;
             transition: all 0.2s;
         }
@@ -324,6 +365,8 @@
         }
         .hud-player-tag.red { background: #dc2626; color: #fff; }
         .hud-player-tag.blue { background: #2563eb; color: #fff; }
+        .hud-player-tag.green { background: #16a34a; color: #fff; }
+        .hud-player-tag.yellow { background: #ca8a04; color: #1c1917; }
 
         .hud-desc { font-size: 0.68rem; color: var(--text-muted); }
         
@@ -341,12 +384,24 @@
             display: flex; flex-direction: column; gap: 6px; z-index: 90;
         }
         .zoom-btn {
-            width: 36px; height: 36px;
+            width: 44px; height: 44px;
             background: rgba(30, 21, 14, 0.94);
             border: 1.5px solid #4a3523; border-radius: 50%;
             color: #fde047; font-size: 1.1rem; font-weight: 900;
             display: flex; align-items: center; justify-content: center;
             box-shadow: 0 6px 14px rgba(0,0,0,0.6);
+        }
+
+        .game-over-panel {
+            color: #fef3c7;
+            font-size: 0.76rem;
+            line-height: 1.35;
+        }
+
+        @media (max-width: 420px) {
+            .header-tools button, .tool-select { min-height: 32px; }
+            .hud-overlay { gap: 7px; padding: 6px 9px; }
+            .current-tile-preview { width: 56px; height: 56px; }
         }
 
         /* Modal Gallery of 24 Archetypes */
@@ -399,55 +454,13 @@
             <span>卡卡頌</span>
         </div>
         <div class="header-tools">
-            <select id="theme-selector" class="tool-select" onchange="changeMapTheme(this.value)">
-                <option value="classic">🎨 手繪典藏風</option>
-                <option value="warm_oil">🖼️ 歐式油畫風</option>
-                <option value="autumn">🍂 金秋莊園風</option>
-                <option value="parchment">📜 羊皮古地圖</option>
-            </select>
-            <button class="gold-btn" onclick="generatePresetKingdom('prosperous')">✨ 範例</button>
+            <button onclick="leaveToLobby()">🏠 大廳</button>
             <button onclick="toggleGalleryModal()">📚 圖鑑</button>
             <button onclick="resetGame()">🔄 重設</button>
         </div>
     </div>
 
-    <div class="header-scoreboard-row">
-        <div id="p1-score-pill" class="player-card active red">
-            <div class="player-badge-icon red">
-                <svg viewBox="0 0 100 100" width="16" height="16">
-                    <path d="M 50 14 C 58 14 62 19 62 26 C 62 31 59 34 55 36 L 72 46 C 76 48 76 53 72 56 L 64 63 L 60 56 L 60 88 L 40 88 L 40 56 L 36 63 L 28 56 C 24 53 24 48 28 46 L 45 36 C 41 34 38 31 38 26 C 38 19 42 14 50 14 Z" fill="#fff" />
-                </svg>
-            </div>
-            <div class="player-info">
-                <div class="player-title-line red">
-                    <span>紅方領主</span>
-                    <span id="p1-turn-tag" class="player-turn-indicator">▶ 行動中</span>
-                </div>
-                <div class="player-stats-line">
-                    <span>得分: <b id="score-red" class="score-num">0</b></span>
-                    <span>米波: <b id="meeples-red">7</b>/7</span>
-                </div>
-            </div>
-        </div>
-
-        <div id="p2-score-pill" class="player-card blue">
-            <div class="player-badge-icon blue">
-                <svg viewBox="0 0 100 100" width="16" height="16">
-                    <path d="M 50 14 C 58 14 62 19 62 26 C 62 31 59 34 55 36 L 72 46 C 76 48 76 53 72 56 L 64 63 L 60 56 L 60 88 L 40 88 L 40 56 L 36 63 L 28 56 C 24 53 24 48 28 46 L 45 36 C 41 34 38 31 38 26 C 38 19 42 14 50 14 Z" fill="#fff" />
-                </svg>
-            </div>
-            <div class="player-info">
-                <div class="player-title-line blue">
-                    <span>藍方領主</span>
-                    <span id="p2-turn-tag" class="player-turn-indicator" style="display: none;">▶ 行動中</span>
-                </div>
-                <div class="player-stats-line">
-                    <span>得分: <b id="score-blue" class="score-num">0</b></span>
-                    <span>米波: <b id="meeples-blue">7</b>/7</span>
-                </div>
-            </div>
-        </div>
-    </div>
+    <div id="player-scoreboard" class="header-scoreboard-row"></div>
 </header>
 
 <!-- 60FPS Hardware Accelerated Viewport -->
@@ -497,7 +510,7 @@
             <button onclick="toggleGalleryModal()">✕ 關閉</button>
         </div>
         <p style="font-size: 0.78rem; color: var(--text-muted);">
-            點擊任意板塊即可將其切換為「當前手牌」，在桌面上直接拼放！
+            瀏覽 24 種地形原型與邊緣組合；實際手牌會由牌堆依序抽出。
         </p>
         <div id="gallery-grid" class="gallery-grid">
             <!-- 24 tiles injected here -->
@@ -638,7 +651,7 @@
         'C': { name: '四方都城 (金盾)', edges: ['C','C','C','C'], cityType: 'full', shield: true },
         'D': { name: '要塞城牆 + 轉角道', edges: ['C','R','R','F'], cityType: 'north', roadType: 'east-south' },
         'E': { name: '北境孤單城牆', edges: ['C','F','F','F'], cityType: 'north' },
-        'F': { name: '貫通雙城要塞(盾)', edges: ['F','C','F','C'], cityType: 'bridge', shield: true },
+        'F': { name: '貫通雙城要塞(盾)', edges: ['C','F','C','F'], cityType: 'bridge', shield: true },
         'G': { name: '南北雙雄城堡', edges: ['C','F','C','F'], cityType: 'opposite' },
         'H': { name: '雙角獨立堡壘', edges: ['C','C','F','F'], cityType: 'separate-corners' },
         'I': { name: '直角合圍城堡', edges: ['C','C','F','F'], cityType: 'corner' },
@@ -659,9 +672,117 @@
         'X': { name: '水井十字路口', edges: ['R','R','R','R'], roadType: 'crossroad' }
     };
 
+    const DIRECTIONS = [
+        { dx: 0, dy: -1, opposite: 2 },
+        { dx: 1, dy: 0, opposite: 3 },
+        { dx: 0, dy: 1, opposite: 0 },
+        { dx: -1, dy: 0, opposite: 1 }
+    ];
+
+    function rotatedFeatureEdges(edges, rotation) {
+        return edges.map(edge => (edge + rotation) % 4);
+    }
+
+    function getFeatureGroups(typeKey) {
+        const def = TILE_DEFS[typeKey];
+        let cityGroups = [];
+        if (def.cityType === 'full') cityGroups = [[0, 1, 2, 3]];
+        else if (def.cityType === 'corner') cityGroups = [[0, 1]];
+        else if (def.cityType === 'three-sides') cityGroups = [[0, 1, 3]];
+        else if (def.cityType === 'bridge') cityGroups = [[0, 2]];
+        else if (def.cityType === 'opposite') cityGroups = [[0], [2]];
+        else if (def.cityType === 'separate-corners') cityGroups = [[0], [1]];
+        else if (def.cityType) cityGroups = [[0]];
+
+        let roadGroups = [];
+        if (def.roadType === 'straight-v') roadGroups = [[0, 2]];
+        else if (def.roadType === 'straight-h') roadGroups = [[1, 3]];
+        else if (def.roadType === 'south-west') roadGroups = [[2, 3]];
+        else if (def.roadType === 'east-south') roadGroups = [[1, 2]];
+        else if (def.roadType === 'south') roadGroups = [[2]];
+        else if (def.roadType === 't-junction') roadGroups = [[1, 2, 3]];
+        else if (def.roadType === 'crossroad') roadGroups = [[0, 1, 2, 3]];
+
+        return { city: cityGroups, road: roadGroups };
+    }
+
+    function featureGroupAt(data, kind, edge) {
+        const groups = getFeatureGroups(data.typeKey)[kind] || [];
+        const localEdge = (edge - data.rotation + 4) % 4;
+        const group = groups.findIndex(edges => edges.includes(localEdge));
+        return group === -1 ? null : group;
+    }
+
+    function featureAnchor(data, kind, group) {
+        const edges = getFeatureGroups(data.typeKey)[kind][group];
+        const rotated = rotatedFeatureEdges(edges, data.rotation);
+        const vectors = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+        const vector = rotated.reduce((sum, edge) => [sum[0] + vectors[edge][0], sum[1] + vectors[edge][1]], [0, 0]);
+        const magnitude = Math.hypot(vector[0], vector[1]) || 1;
+        const distance = kind === 'city' ? 22 : 12;
+        return { x: 50 + (vector[0] / magnitude) * distance, y: 50 + (vector[1] / magnitude) * distance };
+    }
+
+    function getFeatureComponent(gx, gy, kind, startGroup) {
+        const queue = [{ gx, gy, group: startGroup }];
+        const seen = new Set();
+        const nodes = [];
+        let isOpen = false;
+
+        while (queue.length) {
+            const node = queue.pop();
+            const nodeId = `${node.gx},${node.gy}|${kind}|${node.group}`;
+            if (seen.has(nodeId)) continue;
+            seen.add(nodeId);
+
+            const data = gridMap.get(`${node.gx},${node.gy}`);
+            if (!data) continue;
+            const edges = rotatedFeatureEdges(getFeatureGroups(data.typeKey)[kind][node.group], data.rotation);
+            nodes.push({ ...node, data, nodeId });
+
+            for (const edge of edges) {
+                const direction = DIRECTIONS[edge];
+                const nx = node.gx + direction.dx;
+                const ny = node.gy + direction.dy;
+                const neighbour = gridMap.get(`${nx},${ny}`);
+                if (!neighbour) {
+                    isOpen = true;
+                    continue;
+                }
+                const neighbourGroup = featureGroupAt(neighbour, kind, direction.opposite);
+                if (neighbourGroup === null) {
+                    isOpen = true;
+                    continue;
+                }
+                queue.push({ gx: nx, gy: ny, group: neighbourGroup });
+            }
+        }
+        return { nodes, isOpen, id: [...seen].sort().join(';') };
+    }
+
+    function featureHasMeeple(component, kind) {
+        return component.nodes.some(node => node.data.meeple?.kind === kind);
+    }
+
     function renderTileSVG(typeKey, rotation = 0, size = 100, tileUid = 'main') {
         const def = TILE_DEFS[typeKey] || TILE_DEFS['U'];
         const p = THEME_PALETTES[currentMapTheme] || THEME_PALETTES.classic;
+        const seed = [...tileUid].reduce((sum, char) => ((sum * 31) + char.charCodeAt(0)) >>> 0, 7);
+        const foliageX = 12 + (seed % 25);
+        const foliageY = 12 + ((seed >>> 5) % 22);
+        const furrowOffset = (seed >>> 10) % 18;
+        const terrainCoordinates = tileUid.match(/(?:t|preview)_(-?\d+)_(-?\d+)/);
+        const terrainX = terrainCoordinates ? -Number(terrainCoordinates[1]) * 100 : -(seed % 500);
+        const terrainY = terrainCoordinates ? -Number(terrainCoordinates[2]) * 100 : -((seed >>> 8) % 500);
+        const cityClip = {
+            north: '<path d="M 0 0 H 100 C 80 44 20 44 0 0 Z" />',
+            full: '<rect width="100" height="100" />',
+            corner: '<path d="M 0 0 H 100 V 100 C 60 72 28 40 0 0 Z" />',
+            'three-sides': '<path d="M 0 0 H 100 V 100 C 80 50 65 68 50 68 C 35 68 20 50 0 100 Z" />',
+            bridge: '<path d="M 4 0 H 96 V 35 C 78 45 78 55 96 65 V 100 H 4 V 65 C 22 55 22 45 4 35 Z" />',
+            opposite: '<path d="M 0 0 H 100 C 80 34 20 34 0 0 Z M 0 100 H 100 C 80 66 20 66 0 100 Z" />',
+            'separate-corners': '<path d="M 4 0 H 96 V 4 C 83 9 67 16 51 25 C 36 34 22 39 12 33 C 8 30 6 27 4 25 Z M 100 4 V 96 H 75 C 68 91 65 81 67 70 C 70 54 77 38 84 26 C 89 16 94 8 100 4 Z" />'
+        }[def.cityType] || '';
 
         let svg = `<svg viewBox="0 0 100 100" width="${size}" height="${size}" style="transform: rotate(${rotation * 90}deg);">`;
         
@@ -682,34 +803,28 @@
                     <stop offset="60%" stop-color="${p.roofClay[1]}" />
                     <stop offset="100%" stop-color="${p.roofClay[2]}" />
                 </linearGradient>
+                <pattern id="pasture_${tileUid}" width="100" height="100" patternUnits="userSpaceOnUse">
+                    <image href="assets/carcassonne-pasture-v1.png" x="${terrainX}" y="${terrainY}" width="800" height="800" preserveAspectRatio="none" />
+                </pattern>
+                <pattern id="road_${tileUid}" width="28" height="28" patternUnits="userSpaceOnUse">
+                    <image href="assets/carcassonne-road-v1.png" width="112" height="112" preserveAspectRatio="none" />
+                </pattern>
+                ${cityClip ? `<clipPath id="city_clip_${tileUid}">${cityClip}</clipPath>` : ''}
             </defs>
         `;
 
-        // 1. Seamless Pasture Grassland Base
-        svg += `<rect width="100" height="100" fill="url(#grass_${tileUid})" />`;
-        
-        // Organic Farmland Furrows & Grass Texture Details
+        // A generated hand-painted pasture is sampled by board coordinate so adjoining tiles share one landscape.
+        svg += `<rect width="100" height="100" fill="url(#pasture_${tileUid})" />`;
+
+        // Subtle variation is deterministic per tile, avoiding the obvious repeated tree/sheep pattern.
         svg += `
-            <path d="M 8 15 Q 25 12 38 16 M 12 24 Q 28 20 42 25 M 65 78 Q 80 75 92 80 M 60 86 Q 76 83 88 88" stroke="${p.furrowColor}" stroke-width="0.8" fill="none" opacity="0.6" />
-            <g transform="translate(18, 18)">
-                <ellipse cx="2" cy="3" rx="6" ry="4" fill="#000" opacity="0.25" />
+            <path d="M ${-18 + furrowOffset} 16 Q 28 11 58 18 M ${-30 + furrowOffset} 28 Q 26 22 52 29 M ${50 + furrowOffset} 84 Q 76 79 112 86" stroke="${p.furrowColor}" stroke-width="0.7" fill="none" opacity="0.25" />
+            <g transform="translate(${foliageX}, ${foliageY})" opacity="0.76">
+                <ellipse cx="2" cy="3" rx="5" ry="3" fill="#000" opacity="0.18" />
                 <rect x="-1" y="0" width="2" height="4" fill="#4a2e12" />
-                <circle cx="0" cy="-2" r="5" fill="${p.foliage[0]}" />
-                <circle cx="3" cy="-3" r="3.8" fill="${p.foliage[1]}" />
-                <circle cx="-3" cy="-1" r="3.5" fill="${p.foliage[2]}" />
-            </g>
-            <g transform="translate(82, 80)">
-                <ellipse cx="2" cy="3" rx="6" ry="4" fill="#000" opacity="0.25" />
-                <rect x="-1" y="0" width="2" height="4" fill="#4a2e12" />
-                <circle cx="0" cy="-2" r="5.2" fill="${p.foliage[0]}" />
-                <circle cx="-3" cy="-3" r="4" fill="${p.foliage[1]}" />
-            </g>
-            <g transform="translate(24, 76)">
-                <ellipse cx="0" cy="0" rx="4" ry="2.8" fill="#f8fafc" />
-                <circle cx="3.8" cy="-1" r="1.8" fill="#334155" />
-                <circle cx="-2.5" cy="0.6" r="1.2" fill="#e2e8f0" />
-                <line x1="-1.5" y1="2" x2="-1.5" y2="4.5" stroke="#334155" stroke-width="0.8" />
-                <line x1="1.5" y1="2" x2="1.5" y2="4.5" stroke="#334155" stroke-width="0.8" />
+                <circle cx="0" cy="-2" r="4.2" fill="${p.foliage[0]}" />
+                <circle cx="3" cy="-3" r="3.1" fill="${p.foliage[1]}" />
+                <circle cx="-3" cy="-1" r="2.8" fill="${p.foliage[2]}" />
             </g>
         `;
 
@@ -765,20 +880,23 @@
                 </g>
             `;
         } else if (def.cityType === 'bridge') {
-            svg += `<path d="M 0 28 C 40 28, 60 28, 100 28 L 100 76 C 60 76, 40 76, 0 76 Z" fill="#000" opacity="0.32" />`;
-            svg += `<path d="M 0 28 C 40 28, 60 28, 100 28 L 100 72 C 60 72, 40 72, 0 72 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" />`;
-            svg += `
-                <g transform="translate(36, 34)">
-                    <rect x="0" y="8" width="28" height="15" fill="#f8fafc" stroke="#475569" stroke-width="1.2" />
-                    <polygon points="-2,8 14,-3 30,8" fill="url(#roof_${tileUid})" stroke="#5c1d06" stroke-width="1.2" />
-                </g>
-            `;
+            // One connected city runs north-to-south; narrow grass guards keep both side edges fully pastoral.
+            svg += `<path d="M 4 0 H 96 V 35 C 78 45 78 55 96 65 V 100 H 4 V 65 C 22 55 22 45 4 35 Z" fill="#000" opacity="0.3" />`;
+            svg += `<path d="M 4 0 H 96 V 35 C 78 45 78 55 96 65 V 100 H 4 V 65 C 22 55 22 45 4 35 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" />`;
+            svg += `<path d="M 10 9 H 90 M 10 91 H 90" stroke="#d8c6a1" stroke-width="1.2" opacity="0.62" />`;
         } else if (def.cityType === 'opposite') {
             svg += `<path d="M 0 0 L 100 0 C 80 34, 20 34, 0 0 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" />`;
             svg += `<path d="M 0 100 L 100 100 C 80 66, 20 66, 0 100 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" />`;
         } else if (def.cityType === 'separate-corners') {
-            svg += `<path d="M 0 0 L 60 0 C 40 24, 18 24, 0 0 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" />`;
-            svg += `<path d="M 100 40 L 100 100 C 76 82, 76 60, 100 40 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" />`;
+            // Two independent cities: full north and east exits, separated by a visible pasture cleft.
+            svg += `<path d="M 4 0 H 96 V 4 C 83 9 67 16 51 25 C 36 34 22 39 12 33 C 8 30 6 27 4 25 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" />`;
+            svg += `<path d="M 100 4 V 96 H 75 C 68 91 65 81 67 70 C 70 54 77 38 84 26 C 89 16 94 8 100 4 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" />`;
+        }
+
+        // Hand-painted town artwork is clipped to the mathematical city boundary.
+        if (cityClip) {
+            svg += `<image href="assets/carcassonne-city-v1.png" x="-2" y="-2" width="104" height="104" preserveAspectRatio="xMidYMid meet" clip-path="url(#city_clip_${tileUid})" opacity="0.92" />`;
+            svg += `<path d="${def.cityType === 'full' ? 'M 1 1 H 99 V 99 H 1 Z' : ''}" fill="none" stroke="#fff7d6" stroke-width="0.45" opacity="0.32" />`;
         }
 
         // Royal Crest / Shield with 3D Embossing
@@ -800,35 +918,35 @@
         // 3. Realistic Winding Sandstone Roads with Wheel Cart Tracks
         if (def.roadType === 'straight-v') {
             svg += `<line x1="50" y1="0" x2="50" y2="100" stroke="${p.roadTrack}" stroke-width="15" stroke-linecap="round" />`;
-            svg += `<line x1="50" y1="0" x2="50" y2="100" stroke="${p.roadSand}" stroke-width="11" />`;
+            svg += `<line x1="50" y1="0" x2="50" y2="100" stroke="url(#road_${tileUid})" stroke-width="11" />`;
             svg += `<line x1="47" y1="0" x2="47" y2="100" stroke="${p.roadPebble}" stroke-width="1.2" stroke-dasharray="8 4" />`;
             svg += `<line x1="53" y1="0" x2="53" y2="100" stroke="${p.roadPebble}" stroke-width="1.2" stroke-dasharray="8 4" />`;
         } else if (def.roadType === 'straight-h') {
             svg += `<line x1="0" y1="50" x2="100" y2="50" stroke="${p.roadTrack}" stroke-width="15" stroke-linecap="round" />`;
-            svg += `<line x1="0" y1="50" x2="100" y2="50" stroke="${p.roadSand}" stroke-width="11" />`;
+            svg += `<line x1="0" y1="50" x2="100" y2="50" stroke="url(#road_${tileUid})" stroke-width="11" />`;
             svg += `<line x1="0" y1="47" x2="100" y2="47" stroke="${p.roadPebble}" stroke-width="1.2" stroke-dasharray="8 4" />`;
             svg += `<line x1="0" y1="53" x2="100" y2="53" stroke="${p.roadPebble}" stroke-width="1.2" stroke-dasharray="8 4" />`;
         } else if (def.roadType === 'south-west') {
             svg += `<path d="M 0 50 Q 50 50 50 100" stroke="${p.roadTrack}" stroke-width="15" fill="none" />`;
-            svg += `<path d="M 0 50 Q 50 50 50 100" stroke="${p.roadSand}" stroke-width="11" fill="none" />`;
+            svg += `<path d="M 0 50 Q 50 50 50 100" stroke="url(#road_${tileUid})" stroke-width="11" fill="none" />`;
             svg += `<path d="M 0 47 Q 47 47 47 100" stroke="${p.roadPebble}" stroke-width="1.2" fill="none" stroke-dasharray="8 4" />`;
             svg += `<path d="M 0 53 Q 53 53 53 100" stroke="${p.roadPebble}" stroke-width="1.2" fill="none" stroke-dasharray="8 4" />`;
         } else if (def.roadType === 'east-south') {
             svg += `<path d="M 100 50 Q 50 50 50 100" stroke="${p.roadTrack}" stroke-width="15" fill="none" />`;
-            svg += `<path d="M 100 50 Q 50 50 50 100" stroke="${p.roadSand}" stroke-width="11" fill="none" />`;
+            svg += `<path d="M 100 50 Q 50 50 50 100" stroke="url(#road_${tileUid})" stroke-width="11" fill="none" />`;
             svg += `<path d="M 100 47 Q 53 47 53 100" stroke="${p.roadPebble}" stroke-width="1.2" fill="none" stroke-dasharray="8 4" />`;
             svg += `<path d="M 100 53 Q 47 53 47 100" stroke="${p.roadPebble}" stroke-width="1.2" fill="none" stroke-dasharray="8 4" />`;
         } else if (def.roadType === 'south') {
             svg += `<line x1="50" y1="50" x2="50" y2="100" stroke="${p.roadTrack}" stroke-width="15" stroke-linecap="round" />`;
-            svg += `<line x1="50" y1="50" x2="50" y2="100" stroke="${p.roadSand}" stroke-width="11" />`;
+            svg += `<line x1="50" y1="50" x2="50" y2="100" stroke="url(#road_${tileUid})" stroke-width="11" />`;
         } else if (def.roadType === 't-junction') {
             svg += `<path d="M 0 50 L 100 50 M 50 50 L 50 100" stroke="${p.roadTrack}" stroke-width="15" fill="none" />`;
-            svg += `<path d="M 0 50 L 100 50 M 50 50 L 50 100" stroke="${p.roadSand}" stroke-width="11" fill="none" />`;
+            svg += `<path d="M 0 50 L 100 50 M 50 50 L 50 100" stroke="url(#road_${tileUid})" stroke-width="11" fill="none" />`;
             svg += `<circle cx="50" cy="50" r="8" fill="${p.roadTrack}" />`;
-            svg += `<circle cx="50" cy="50" r="5.5" fill="${p.roadSand}" />`;
+            svg += `<circle cx="50" cy="50" r="5.5" fill="url(#road_${tileUid})" />`;
         } else if (def.roadType === 'crossroad') {
             svg += `<path d="M 0 50 L 100 50 M 50 0 L 50 100" stroke="${p.roadTrack}" stroke-width="15" fill="none" />`;
-            svg += `<path d="M 0 50 L 100 50 M 50 0 L 50 100" stroke="${p.roadSand}" stroke-width="11" fill="none" />`;
+            svg += `<path d="M 0 50 L 100 50 M 50 0 L 50 100" stroke="url(#road_${tileUid})" stroke-width="11" fill="none" />`;
             svg += `
                 <g transform="translate(50, 50)">
                     <circle cx="0" cy="0" r="10" fill="#475569" stroke="#1e293b" stroke-width="1.8" />
@@ -839,26 +957,9 @@
             `;
         }
 
-        // 4. Romanesque Cathedral Monastery
+        // 4. Hand-painted monastery artwork
         if (def.hasMonastery) {
-            svg += `
-                <g transform="translate(50, 48)">
-                    <g transform="translate(-24, -8)"><circle cx="0" cy="0" r="6.5" fill="${p.foliage[0]}" /><circle cx="2" cy="-2" r="4.5" fill="${p.foliage[1]}" /></g>
-                    <g transform="translate(24, -8)"><circle cx="0" cy="0" r="6.5" fill="${p.foliage[0]}" /><circle cx="-2" cy="-2" r="4.5" fill="${p.foliage[1]}" /></g>
-                    <g transform="translate(-20, 18)"><circle cx="0" cy="0" r="5.5" fill="${p.foliage[0]}" /></g>
-                    <g transform="translate(20, 18)"><circle cx="0" cy="0" r="5.5" fill="${p.foliage[0]}" /></g>
-
-                    <rect x="-18" y="-12" width="36" height="30" fill="#f8fafc" stroke="#475569" stroke-width="1.8" rx="2" />
-                    <circle cx="0" cy="0" r="4.5" fill="#38bdf8" stroke="#1e293b" stroke-width="1.2" />
-                    <line x1="-4.5" y1="0" x2="4.5" y2="0" stroke="#1e293b" stroke-width="0.8" />
-                    <line x1="0" y1="-4.5" x2="0" y2="4.5" stroke="#1e293b" stroke-width="0.8" />
-                    
-                    <path d="M -5 18 L 5 18 L 5 8 C 5 5 -5 5 -5 8 Z" fill="#643b18" stroke="#381e0b" stroke-width="1.2" />
-                    <polygon points="0,-26 -22,-10 22,-10" fill="url(#roof_${tileUid})" stroke="#5c1d06" stroke-width="1.8" />
-                    <line x1="0" y1="-33" x2="0" y2="-26" stroke="#fbbf24" stroke-width="2.2" />
-                    <line x1="-4" y1="-30" x2="4" y2="-30" stroke="#fbbf24" stroke-width="2.2" />
-                </g>
-            `;
+            svg += `<image href="assets/carcassonne-monastery-v1.png" x="11" y="9" width="78" height="78" preserveAspectRatio="xMidYMid meet" />`;
         }
 
         svg += `</svg>`;
@@ -867,21 +968,25 @@
 
     // 3D Wooden Meeple
     function renderMeepleSVG(color = 'red') {
-        const isRed = color === 'red';
-        const gradId = isRed ? 'redMeepleG' : 'blueMeepleG';
-        const stroke = isRed ? '#7f1d1d' : '#172554';
+        const palette = {
+            red: { light: '#f87171', main: '#dc2626', dark: '#991b1b', stroke: '#7f1d1d' },
+            blue: { light: '#60a5fa', main: '#2563eb', dark: '#1e3a8a', stroke: '#172554' },
+            green: { light: '#86efac', main: '#16a34a', dark: '#166534', stroke: '#14532d' },
+            yellow: { light: '#fde68a', main: '#eab308', dark: '#a16207', stroke: '#713f12' }
+        }[color] || { light: '#f8fafc', main: '#64748b', dark: '#334155', stroke: '#1e293b' };
+        const gradId = `${color}MeepleG`;
 
         return `
             <svg viewBox="0 0 100 100" width="32" height="32">
                 <defs>
                     <radialGradient id="${gradId}" cx="35%" cy="30%" r="70%">
-                        <stop offset="0%" stop-color="${isRed ? '#f87171' : '#60a5fa'}" />
-                        <stop offset="60%" stop-color="${isRed ? '#dc2626' : '#2563eb'}" />
-                        <stop offset="100%" stop-color="${isRed ? '#991b1b' : '#1e3a8a'}" />
+                        <stop offset="0%" stop-color="${palette.light}" />
+                        <stop offset="60%" stop-color="${palette.main}" />
+                        <stop offset="100%" stop-color="${palette.dark}" />
                     </radialGradient>
                 </defs>
                 <path d="M 50 12 C 58 12 64 18 64 26 C 64 31 60 35 56 37 L 74 47 C 78 49 78 54 74 57 L 66 65 L 61 58 L 61 88 L 39 88 L 39 58 L 34 65 L 26 57 C 22 54 22 49 26 47 L 44 37 C 40 35 36 31 36 26 C 36 18 42 12 50 12 Z" 
-                      fill="url(#${gradId})" stroke="${stroke}" stroke-width="3" stroke-linejoin="round" />
+                      fill="url(#${gradId})" stroke="${palette.stroke}" stroke-width="3" stroke-linejoin="round" />
                 <ellipse cx="46" cy="22" rx="4" ry="3" fill="rgba(255,255,255,0.4)" />
             </svg>
         `;
@@ -902,14 +1007,31 @@
     // 🗺️ TURN ENGINE & STATE MACHINE
     // ==========================================
     const TILE_SIZE = 100;
+    const PLAYER_ORDER = ['red', 'blue', 'green', 'yellow'];
+    const ROLE_TO_PLAYER = { black: 'red', white: 'blue', blue: 'green', green: 'yellow' };
+    const PLAYER_META = {
+        red: { label: '紅方', title: '紅方領主', icon: '🔴' },
+        blue: { label: '藍方', title: '藍方領主', icon: '🔵' },
+        green: { label: '綠方', title: '綠方領主', icon: '🟢' },
+        yellow: { label: '黃方', title: '黃方領主', icon: '🟡' }
+    };
+    const gameParams = new URLSearchParams(window.location.search);
+    const gameMode = gameParams.get('mode') || 'hotseat';
+    const onlineRoomId = gameParams.get('room');
+    let playerCount = Math.max(2, Math.min(4, Number(gameParams.get('players')) || 2));
+    let onlineSocket = null;
+    let onlineRoomState = null;
+    let myRole = gameMode === 'online' ? 'spectator' : 'local';
+    let playerNames = {};
     const gridMap = new Map();
-    let currentTile = { typeKey: 'J', rotation: 0 };
+    let deck = [];
+    let currentTile = null;
     let activePlayer = 'red';
-    let scores = { red: 0, blue: 0 };
-    let meeplesRemaining = { red: 7, blue: 7 };
-    let remainingDeckCount = 71;
+    let scores = { red: 0, blue: 0, green: 0, yellow: 0 };
+    let meeplesRemaining = { red: 7, blue: 7, green: 7, yellow: 7 };
+    let remainingDeckCount = 0;
 
-    // Strict Turn Phases: 'PLACE_TILE' | 'DEPLOY_MEEPLE' | 'RESOLVING'
+    // Strict turn phases: draw/preview → place tile → optional meeple → resolve.
     let turnPhase = 'PLACE_TILE';
     let justPlacedCoords = null;
 
@@ -969,10 +1091,12 @@
 
     window.addEventListener('touchmove', (e) => {
         if (e.touches.length === 1 && isDragging) {
+            e.preventDefault();
             panX = e.touches[0].clientX - dragStartX;
             panY = e.touches[0].clientY - dragStartY;
             requestRender();
         } else if (e.touches.length === 2 && touchStartDist > 0) {
+            e.preventDefault();
             const dist = Math.hypot(
                 e.touches[0].clientX - e.touches[1].clientX,
                 e.touches[0].clientY - e.touches[1].clientY
@@ -1003,10 +1127,118 @@
     function zoomIn() { scale = Math.min(2.2, scale + 0.2); requestRender(); }
     function zoomOut() { scale = Math.max(0.35, scale - 0.2); requestRender(); }
     function resetView() {
-        scale = 0.95;
-        panX = window.innerWidth / 2 - 50;
-        panY = window.innerHeight / 2 - 80;
+        const rect = viewportEl.getBoundingClientRect();
+        const coords = [...gridMap.keys()].map(key => key.split(',').map(Number));
+        if (!coords.length) return;
+        const xs = coords.map(([x]) => x);
+        const ys = coords.map(([, y]) => y);
+        const minX = Math.min(...xs), maxX = Math.max(...xs);
+        const minY = Math.min(...ys), maxY = Math.max(...ys);
+        const boardWidth = (maxX - minX + 1) * TILE_SIZE;
+        const boardHeight = (maxY - minY + 1) * TILE_SIZE;
+        const safeHeight = Math.max(140, rect.height - 118);
+        scale = Math.min(1.05, Math.max(0.42, Math.min((rect.width - 48) / boardWidth, safeHeight / boardHeight)));
+        const centerX = (minX + maxX + 1) * TILE_SIZE / 2;
+        const centerY = (minY + maxY + 1) * TILE_SIZE / 2;
+        panX = rect.width / 2 - centerX * scale;
+        panY = rect.height / 2 - centerY * scale;
         requestRender();
+    }
+
+    let viewportResizeTimer = null;
+    function keepBoardAnchored() {
+        clearTimeout(viewportResizeTimer);
+        viewportResizeTimer = setTimeout(() => {
+            if (gridMap.size) resetView();
+        }, 120);
+    }
+    window.addEventListener('resize', keepBoardAnchored);
+    window.visualViewport?.addEventListener('resize', keepBoardAnchored);
+
+    function isOnlineGame() {
+        return gameMode === 'online' && Boolean(onlineRoomId);
+    }
+
+    function isMyTurn() {
+        return !isOnlineGame() || (onlineRoomState?.status === 'playing' && ROLE_TO_PLAYER[myRole] === activePlayer);
+    }
+
+    function getActivePlayers() {
+        return PLAYER_ORDER.slice(0, playerCount);
+    }
+
+    function playerDisplayName(color) {
+        return playerNames[color] || PLAYER_META[color].title;
+    }
+
+    function getSerializableState() {
+        return {
+            grid: [...gridMap.entries()], deck, currentTile, activePlayer, scores, meeplesRemaining,
+            remainingDeckCount, turnPhase, justPlacedCoords, playerCount, playerNames
+        };
+    }
+
+    function loadSerializableState(state) {
+        if (!state?.grid) return;
+        gridMap.clear();
+        state.grid.forEach(([key, value]) => gridMap.set(key, value));
+        deck = state.deck || [];
+        currentTile = state.currentTile || null;
+        activePlayer = state.activePlayer || 'red';
+        scores = { red: 0, blue: 0, green: 0, yellow: 0, ...(state.scores || {}) };
+        meeplesRemaining = { red: 7, blue: 7, green: 7, yellow: 7, ...(state.meeplesRemaining || {}) };
+        remainingDeckCount = state.remainingDeckCount ?? deck.length;
+        turnPhase = state.turnPhase || 'PLACE_TILE';
+        justPlacedCoords = state.justPlacedCoords || null;
+        playerCount = Math.max(2, Math.min(4, state.playerCount || playerCount));
+        playerNames = state.playerNames || playerNames;
+    }
+
+    function syncOnlineState(actorPlayer, init = false) {
+        if (!isOnlineGame() || onlineSocket?.readyState !== WebSocket.OPEN) return;
+        onlineSocket.send(JSON.stringify({ type: init ? 'carcassonne_init' : 'carcassonne_sync', actorPlayer, state: getSerializableState() }));
+    }
+
+    function updateOnlinePlayers(roomState) {
+        onlineRoomState = roomState;
+        playerCount = roomState.playerCount || playerCount;
+        Object.entries(roomState.players || {}).forEach(([role, player]) => {
+            const color = ROLE_TO_PLAYER[role];
+            if (color && player?.name) playerNames[color] = player.name;
+        });
+    }
+
+    function connectOnlineGame() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        onlineSocket = new WebSocket(`${protocol}//${window.location.host}`);
+        onlineSocket.addEventListener('open', () => {
+            onlineSocket.send(JSON.stringify({ type: 'join_room', roomId: onlineRoomId, name: gameParams.get('name') || '特勤隊員', rejoinRole: gameParams.get('rejoinRole') || undefined }));
+        });
+        onlineSocket.addEventListener('message', event => {
+            const message = JSON.parse(event.data);
+            const roomState = message.roomState;
+            if (roomState?.gameType === 'carcassonne') updateOnlinePlayers(roomState);
+            if (message.type === 'room_joined') {
+                myRole = message.role;
+                if (roomState.carcassonneState) loadSerializableState(roomState.carcassonneState);
+                else if (myRole === 'black') {
+                    resetGame(true);
+                    syncOnlineState('red', true);
+                }
+                renderWorld();
+            } else if (message.type === 'carcassonne_state' || message.type === 'state_sync') {
+                if (roomState?.carcassonneState) loadSerializableState(roomState.carcassonneState);
+                renderWorld();
+            } else if (message.type === 'player_joined' || message.type === 'player_left') {
+                renderWorld();
+            } else if (message.type === 'game_restarted' && myRole === 'black') {
+                resetGame(true);
+                syncOnlineState('red', true);
+            } else if (message.type === 'error') {
+                showToast(`❌ ${message.message}`);
+            }
+        });
+        onlineSocket.addEventListener('close', () => showToast('⚠️ 多人連線已中斷'));
     }
 
     // ==========================================
@@ -1042,8 +1274,8 @@
         return true;
     }
 
-    function findValidPlacementSlots() {
-        if (turnPhase !== 'PLACE_TILE') return [];
+    function findValidPlacementSlots(typeKey = currentTile?.typeKey, rotation = currentTile?.rotation) {
+        if (!typeKey) return [];
 
         const candidateSlots = new Set();
         const directions = [[0, -1], [1, 0], [0, 1], [-1, 0]];
@@ -1062,7 +1294,7 @@
         const validSlots = [];
         for (const key of candidateSlots) {
             const [gx, gy] = key.split(',').map(Number);
-            if (checkEdgeMatch(currentTile.typeKey, currentTile.rotation, gx, gy)) {
+            if (checkEdgeMatch(typeKey, rotation, gx, gy)) {
                 validSlots.push({ gx, gy });
             }
         }
@@ -1073,7 +1305,10 @@
     // 🏰 BOARD RENDERING & TURN FLOW
     // ==========================================
     function renderWorld(justPlacedKey = null) {
-        worldEl.innerHTML = '';
+        const fragment = document.createDocumentFragment();
+        const terrain = document.createElement('div');
+        terrain.className = 'world-terrain';
+        fragment.appendChild(terrain);
 
         for (const [key, data] of gridMap) {
             const [gx, gy] = key.split(',').map(Number);
@@ -1083,7 +1318,7 @@
             tileDiv.style.top = `${gy * TILE_SIZE}px`;
             const tileUid = `t_${gx}_${gy}`;
             tileDiv.innerHTML = renderTileSVG(data.typeKey, data.rotation, TILE_SIZE, tileUid);
-            worldEl.appendChild(tileDiv);
+            fragment.appendChild(tileDiv);
 
             if (data.meeple) {
                 const m = document.createElement('div');
@@ -1091,27 +1326,29 @@
                 m.style.left = `${gx * TILE_SIZE + data.meeple.offsetX}px`;
                 m.style.top = `${gy * TILE_SIZE + data.meeple.offsetY}px`;
                 m.innerHTML = renderMeepleSVG(data.meeple.color);
-                worldEl.appendChild(m);
+                fragment.appendChild(m);
             }
         }
 
-        // Only show [+] placement slots during PLACE_TILE phase
-        if (turnPhase === 'PLACE_TILE') {
+        // Legal positions show a translucent preview instead of obscuring the map with a yellow square.
+        if (turnPhase === 'PLACE_TILE' && currentTile && isMyTurn()) {
             const validSlots = findValidPlacementSlots();
             validSlots.forEach(({ gx, gy }) => {
                 const slotDiv = document.createElement('div');
                 slotDiv.className = 'placement-slot';
                 slotDiv.style.left = `${gx * TILE_SIZE}px`;
                 slotDiv.style.top = `${gy * TILE_SIZE}px`;
-                slotDiv.innerHTML = `<span class="slot-plus">＋</span>`;
+                slotDiv.innerHTML = `${renderTileSVG(currentTile.typeKey, currentTile.rotation, TILE_SIZE, `preview_${gx}_${gy}`)}<span class="slot-plus">＋</span>`;
                 
                 slotDiv.addEventListener('click', () => {
                     handleTilePlacement(gx, gy);
                 });
 
-                worldEl.appendChild(slotDiv);
+                fragment.appendChild(slotDiv);
             });
         }
+
+        worldEl.replaceChildren(fragment);
 
         updateScoreboard();
         updateHUD();
@@ -1119,7 +1356,7 @@
 
     // PHASE 1: Tile Placement
     function handleTilePlacement(gx, gy) {
-        if (turnPhase !== 'PLACE_TILE') return;
+        if (!isMyTurn() || turnPhase !== 'PLACE_TILE' || !currentTile || !checkEdgeMatch(currentTile.typeKey, currentTile.rotation, gx, gy)) return;
 
         audio.playSnap();
 
@@ -1130,13 +1367,13 @@
             meeple: null
         };
         gridMap.set(placedKey, placedTile);
-        remainingDeckCount = Math.max(0, remainingDeckCount - 1);
         justPlacedCoords = { gx, gy };
 
         // Check if player has meeples remaining
         if (meeplesRemaining[activePlayer] > 0) {
             turnPhase = 'DEPLOY_MEEPLE';
             renderWorld(placedKey);
+            syncOnlineState(activePlayer);
             showToast(`👤 ${activePlayer === 'red' ? '紅方' : '藍方'}：請在下方選擇是否派遣米波跟隨者`);
         } else {
             // No meeples remaining -> Automatically finish turn & pass to next player!
@@ -1144,47 +1381,104 @@
         }
     }
 
-    // PHASE 2: Deploy Meeple or Skip
-    window.deployMeepleChoice = function(role, ox = 50, oy = 50) {
-        if (turnPhase !== 'DEPLOY_MEEPLE' || !justPlacedCoords) return;
+    function getMeepleChoices(tile) {
+        const choices = [];
+        const labels = { city: '🏰 騎士', road: '🛣️ 強盜' };
+        for (const kind of ['city', 'road']) {
+            const groups = getFeatureGroups(tile.typeKey)[kind];
+            groups.forEach((_, group) => {
+                const anchor = featureAnchor(tile, kind, group);
+                const component = getFeatureComponent(justPlacedCoords.gx, justPlacedCoords.gy, kind, group);
+                choices.push({ kind, group, role: kind === 'city' ? 'knight' : 'robber', label: groups.length > 1 ? `${labels[kind]} ${group + 1}` : labels[kind], anchor, blocked: featureHasMeeple(component, kind) });
+            });
+        }
+        if (TILE_DEFS[tile.typeKey].hasMonastery) choices.push({ kind: 'monastery', group: 0, role: 'monk', label: '⛪ 修道士', anchor: { x: 50, y: 48 }, blocked: Boolean(tile.meeple) });
+        return choices;
+    }
+
+    // PHASE 2: Deploy Meeple or Skip. Feature ownership is checked before a meeple can enter it.
+    window.deployMeepleChoice = function(kind = null, group = 0, ox = 50, oy = 50) {
+        if (!isMyTurn() || turnPhase !== 'DEPLOY_MEEPLE' || !justPlacedCoords) return;
 
         const { gx, gy } = justPlacedCoords;
         const tile = gridMap.get(`${gx},${gy}`);
         
-        if (tile && role && meeplesRemaining[activePlayer] > 0) {
-            tile.meeple = { color: activePlayer, role, offsetX: ox, offsetY: oy };
+        if (tile && kind && meeplesRemaining[activePlayer] > 0) {
+            if (kind !== 'monastery' && featureHasMeeple(getFeatureComponent(gx, gy, kind, group), kind)) {
+                showToast('這個地形已有米寶，請選另一個地形或不派遣。');
+                return;
+            }
+            const role = kind === 'city' ? 'knight' : kind === 'road' ? 'robber' : 'monk';
+            tile.meeple = { color: activePlayer, role, kind, group, offsetX: ox, offsetY: oy };
             meeplesRemaining[activePlayer]--;
             audio.playMeeple();
             showToast(`👤 ${activePlayer === 'red' ? '紅方' : '藍方'} 派遣了 ${role === 'knight' ? '騎士' : role === 'robber' ? '強盜' : '修道士'}！`);
         }
 
-        finishTurnAndAdvancePlayer(gx, gy);
+        finishTurnAndAdvancePlayer(gx, gy, activePlayer);
     };
 
     // PHASE 3: Score & Guaranteed Player Switch
-    function finishTurnAndAdvancePlayer(gx, gy) {
+    function finishTurnAndAdvancePlayer(gx, gy, actorPlayer = activePlayer) {
         turnPhase = 'RESOLVING';
-
-        checkMonasteriesScoring();
+        const scoreEvents = [...checkCompletedFeatures(), ...checkMonasteriesScoring()];
 
         // Switch to Next Player (Red <-> Blue)
-        activePlayer = activePlayer === 'red' ? 'blue' : 'red';
+        const players = getActivePlayers();
+        activePlayer = players[(players.indexOf(activePlayer) + 1) % players.length];
         
-        // Draw Next Tile for New Player
-        drawNextPlayerTile();
-
-        turnPhase = 'PLACE_TILE';
+        const hasNextTile = drawNextPlayerTile();
+        turnPhase = hasNextTile ? 'PLACE_TILE' : 'GAME_OVER';
         justPlacedCoords = null;
 
         renderWorld();
+        scoreEvents.forEach(event => triggerScorePopup(event.gx, event.gy, event.text));
+        if (scoreEvents.length) audio.playScore();
+        syncOnlineState(actorPlayer);
+        showToast(hasNextTile ? `▶ 輪到【${activePlayer === 'red' ? '紅方' : '藍方'}領主】行動！` : '🏁 牌堆已用盡，本局結束！');
+    }
 
-        showToast(`▶ 輪到【${activePlayer === 'red' ? '紅方' : '藍方'}領主】行動！請拼放板塊`);
+    function checkCompletedFeatures() {
+        const checked = new Set();
+        const events = [];
+        for (const [key, data] of gridMap) {
+            const [gx, gy] = key.split(',').map(Number);
+            for (const kind of ['city', 'road']) {
+                const groups = getFeatureGroups(data.typeKey)[kind];
+                groups.forEach((_, group) => {
+                    const component = getFeatureComponent(gx, gy, kind, group);
+                    if (checked.has(component.id)) return;
+                    checked.add(component.id);
+                    if (component.isOpen || !featureHasMeeple(component, kind)) return;
+
+                    const owners = {};
+                    component.nodes.forEach(node => {
+                        const meeple = node.data.meeple;
+                        if (meeple?.kind === kind) owners[meeple.color] = (owners[meeple.color] || 0) + 1;
+                    });
+                    const majority = Math.max(...Object.values(owners));
+                    const winners = Object.entries(owners).filter(([, count]) => count === majority).map(([color]) => color);
+                    const shields = kind === 'city' ? component.nodes.filter(node => TILE_DEFS[node.data.typeKey].shield).length : 0;
+                    const points = kind === 'city' ? component.nodes.length * 2 + shields * 2 : component.nodes.length;
+                    winners.forEach(color => { scores[color] += points; });
+                    component.nodes.forEach(node => {
+                        if (node.data.meeple?.kind === kind) {
+                            meeplesRemaining[node.data.meeple.color]++;
+                            node.data.meeple = null;
+                        }
+                    });
+                    events.push({ gx, gy, text: `+${points} ${kind === 'city' ? '🏰 城市完成' : '🛣️ 道路完成'}` });
+                });
+            }
+        }
+        return events;
     }
 
     function checkMonasteriesScoring() {
+        const events = [];
         for (const [key, data] of gridMap) {
             const def = TILE_DEFS[data.typeKey];
-            if (def.hasMonastery && data.meeple && data.meeple.role === 'monk') {
+            if (def.hasMonastery && data.meeple?.kind === 'monastery') {
                 const [mx, my] = key.split(',').map(Number);
                 let surroundingCount = 0;
                 for (let dx = -1; dx <= 1; dx++) {
@@ -1199,11 +1493,11 @@
                     meeplesRemaining[scorer]++;
                     data.meeple = null;
 
-                    triggerScorePopup(mx, my, `+9 ⛪ 大教堂竣工！`);
-                    audio.playScore();
+                    events.push({ gx: mx, gy: my, text: '+9 ⛪ 修道院完成' });
                 }
             }
         }
+        return events;
     }
 
     function triggerScorePopup(gx, gy, text) {
@@ -1216,115 +1510,144 @@
         setTimeout(() => pop.remove(), 2000);
     }
 
-    function drawNextPlayerTile() {
-        const keys = Object.keys(TILE_DEFS);
-        currentTile.typeKey = keys[Math.floor(Math.random() * keys.length)];
-        currentTile.rotation = 0;
+    function shuffleDeck(items) {
+        for (let i = items.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [items[i], items[j]] = [items[j], items[i]];
+        }
+        return items;
     }
 
-    function drawRandomTile() {
-        if (turnPhase !== 'PLACE_TILE') return;
-        drawNextPlayerTile();
-        renderWorld();
+    function buildDeck() {
+        deck = shuffleDeck(Object.keys(TILE_DEFS).flatMap(key => Array(3).fill(key)));
+        const startingTileIndex = deck.indexOf('J');
+        deck.splice(startingTileIndex, 1);
+        remainingDeckCount = deck.length;
+    }
+
+    function drawNextPlayerTile() {
+        while (deck.length) {
+            const typeKey = deck.pop();
+            remainingDeckCount = deck.length;
+            for (let rotation = 0; rotation < 4; rotation++) {
+                if (findValidPlacementSlots(typeKey, rotation).length) {
+                    currentTile = { typeKey, rotation };
+                    return true;
+                }
+            }
+            // A temporarily unplayable tile goes to the bottom; the player never receives a dead turn.
+            deck.unshift(typeKey);
+            if (deck.every(key => ![0, 1, 2, 3].some(rotation => findValidPlacementSlots(key, rotation).length))) break;
+        }
+        currentTile = null;
+        remainingDeckCount = deck.length;
+        return false;
     }
 
     function rotateCurrentTile() {
-        if (turnPhase !== 'PLACE_TILE') return;
+        if (!isMyTurn() || turnPhase !== 'PLACE_TILE' || !currentTile) return;
         currentTile.rotation = (currentTile.rotation + 1) % 4;
         audio.playSnap();
         renderWorld();
+        syncOnlineState(activePlayer);
     }
 
     function updateScoreboard() {
-        document.getElementById('score-red').textContent = scores.red;
-        document.getElementById('score-blue').textContent = scores.blue;
-        document.getElementById('meeples-red').textContent = meeplesRemaining.red;
-        document.getElementById('meeples-blue').textContent = meeplesRemaining.blue;
         document.getElementById('deck-count-text').textContent = remainingDeckCount;
-
-        const isRed = activePlayer === 'red';
-        document.getElementById('p1-score-pill').className = `player-card ${isRed ? 'active' : ''} red`;
-        document.getElementById('p2-score-pill').className = `player-card ${!isRed ? 'active' : ''} blue`;
-
-        document.getElementById('p1-turn-tag').style.display = isRed ? 'inline-block' : 'none';
-        document.getElementById('p2-turn-tag').style.display = !isRed ? 'inline-block' : 'none';
+        const scoreboard = document.getElementById('player-scoreboard');
+        const players = getActivePlayers();
+        scoreboard.style.gridTemplateColumns = `repeat(${Math.min(players.length, 2)}, minmax(0, 1fr))`;
+        scoreboard.innerHTML = players.map(color => {
+            const meta = PLAYER_META[color];
+            const isActive = activePlayer === color;
+            return `<div class="player-card ${isActive ? 'active' : ''} ${color}">
+                <div class="player-badge-icon ${color}">${meta.icon}</div>
+                <div class="player-info"><div class="player-title-line ${color}"><span>${playerDisplayName(color)}</span>${isActive ? '<span class="player-turn-indicator">▶ 行動中</span>' : ''}</div>
+                <div class="player-stats-line"><span>得分: <b class="score-num">${scores[color]}</b></span><span>米波: <b>${meeplesRemaining[color]}</b>/7</span></div></div>
+            </div>`;
+        }).join('');
     }
 
     function updateHUD() {
-        document.getElementById('hud-rotator').innerHTML = renderTileSVG(currentTile.typeKey, currentTile.rotation, 62, 'hud_current');
-        document.getElementById('hud-tile-name').textContent = TILE_DEFS[currentTile.typeKey].name;
+        const tilePreview = document.getElementById('hud-rotator');
+        const tileName = document.getElementById('hud-tile-name');
+        tilePreview.innerHTML = currentTile ? renderTileSVG(currentTile.typeKey, currentTile.rotation, 62, 'hud_current') : '🏁';
+        tileName.textContent = currentTile ? TILE_DEFS[currentTile.typeKey].name : '本局結束';
 
         const playerTag = document.getElementById('hud-player-tag');
         const isRed = activePlayer === 'red';
-        playerTag.className = `hud-player-tag ${isRed ? 'red' : 'blue'}`;
-        playerTag.textContent = isRed ? '紅方回合' : '藍方回合';
+        playerTag.className = `hud-player-tag ${activePlayer}`;
+        playerTag.textContent = `${playerDisplayName(activePlayer)}回合`;
 
         const statusDesc = document.getElementById('hud-status-desc');
         const actionsRow = document.getElementById('hud-actions-row');
 
-        if (turnPhase === 'PLACE_TILE') {
-            statusDesc.innerHTML = `點擊地圖黃色 <b>[➕]</b> 拼放板塊`;
+        if (isOnlineGame() && onlineRoomState?.status !== 'playing' && turnPhase !== 'GAME_OVER') {
+            const waitingFor = playerCount - Object.values(onlineRoomState?.players || {}).filter(Boolean).length;
+            statusDesc.innerHTML = `🌐 房號 ${onlineRoomId}：等待 ${Math.max(0, waitingFor)} 位玩家加入`;
+            actionsRow.innerHTML = `<button onclick="navigator.clipboard?.writeText(onlineRoomId); showToast('房號已複製')">📋 複製房號</button>`;
+        } else if (isOnlineGame() && !isMyTurn() && turnPhase !== 'GAME_OVER') {
+            statusDesc.innerHTML = `⏳ 等待 <b>${playerDisplayName(activePlayer)}</b> 行動`;
+            actionsRow.innerHTML = `<button onclick="resetView()">🎯 查看全圖</button>`;
+        } else if (turnPhase === 'PLACE_TILE') {
+            const slots = findValidPlacementSlots();
+            statusDesc.innerHTML = slots.length ? `點擊半透明的 <b>板塊預覽</b> 放置「${TILE_DEFS[currentTile.typeKey].name}」` : `此方向無位置，請旋轉板塊。`;
             actionsRow.innerHTML = `
                 <button class="primary" onclick="rotateCurrentTile()">🔄 旋轉 90°</button>
-                <button onclick="drawRandomTile()">🎲 抽新牌</button>
+                <button onclick="resetView()">🎯 置中地圖</button>
             `;
         } else if (turnPhase === 'DEPLOY_MEEPLE' && justPlacedCoords) {
             const tile = gridMap.get(`${justPlacedCoords.gx},${justPlacedCoords.gy}`);
-            const def = TILE_DEFS[tile.typeKey];
-
             statusDesc.innerHTML = `<b style="color: #fde047;">選擇派遣米波跟隨者 (餘 ${meeplesRemaining[activePlayer]} 隻)：</b>`;
-            
-            let buttonsHtml = '';
-            if (def.cityType) {
-                buttonsHtml += `<button class="meeple-btn" onclick="deployMeepleChoice('knight', 50, 30)">🏰 騎士</button>`;
-            }
-            if (def.roadType) {
-                buttonsHtml += `<button class="meeple-btn" onclick="deployMeepleChoice('robber', 50, 50)">🛣️ 強盜</button>`;
-            }
-            if (def.hasMonastery) {
-                buttonsHtml += `<button class="meeple-btn" onclick="deployMeepleChoice('monk', 50, 48)">⛪ 修道士</button>`;
-            }
-            buttonsHtml += `<button onclick="deployMeepleChoice(null)">⏭️ 不派遣</button>`;
-            
+            const buttonsHtml = getMeepleChoices(tile).map(choice => choice.blocked
+                ? `<button class="meeple-btn" disabled>${choice.label}・已有米寶</button>`
+                : `<button class="meeple-btn" onclick="deployMeepleChoice('${choice.kind}', ${choice.group}, ${choice.anchor.x.toFixed(1)}, ${choice.anchor.y.toFixed(1)})">${choice.label}</button>`
+            ).join('') + `<button onclick="deployMeepleChoice()">⏭️ 不派遣</button>`;
             actionsRow.innerHTML = buttonsHtml;
+        } else if (turnPhase === 'GAME_OVER') {
+            const winner = scores.red === scores.blue ? '平手' : scores.red > scores.blue ? '紅方領主獲勝' : '藍方領主獲勝';
+            statusDesc.innerHTML = `<span class="game-over-panel">🏁 牌堆用盡：紅方 ${scores.red} 分、藍方 ${scores.blue} 分。<b>${winner}</b></span>`;
+            actionsRow.innerHTML = `<button class="gold-btn" onclick="resetGame()">🔄 再開一局</button><button onclick="resetView()">🎯 查看全圖</button>`;
         }
     }
 
-    function resetGame() {
+    function resetGame(silent = false) {
+        const actorPlayer = activePlayer;
         gridMap.clear();
-        scores = { red: 0, blue: 0 };
-        meeplesRemaining = { red: 7, blue: 7 };
-        remainingDeckCount = 71;
+        scores = { red: 0, blue: 0, green: 0, yellow: 0 };
+        meeplesRemaining = { red: 7, blue: 7, green: 7, yellow: 7 };
         activePlayer = 'red';
         turnPhase = 'PLACE_TILE';
         justPlacedCoords = null;
 
+        buildDeck();
         gridMap.set('0,0', { typeKey: 'J', rotation: 0, meeple: null });
         drawNextPlayerTile();
         resetView();
-        showToast('🔄 已重新開局！起始城門板塊置於中心');
+        renderWorld();
+        if (!silent) showToast('🔄 已重新開局！起始城門板塊置於中心');
+        if (!silent) syncOnlineState(actorPlayer);
     }
 
-    function generatePresetKingdom(theme) {
+    function generatePresetKingdom() {
         gridMap.clear();
-        scores = { red: 18, blue: 12 };
-        meeplesRemaining = { red: 4, blue: 5 };
-        remainingDeckCount = 56;
+        scores = { red: 18, blue: 12, green: 0, yellow: 0 };
+        meeplesRemaining = { red: 4, blue: 5, green: 7, yellow: 7 };
         activePlayer = 'red';
         turnPhase = 'PLACE_TILE';
         justPlacedCoords = null;
 
         const sampleTiles = [
             { gx: 0, gy: 0, type: 'J', rot: 0, meeple: null },
-            { gx: 0, gy: -1, type: 'C', rot: 0, meeple: { color: 'red', role: 'knight', offsetX: 50, offsetY: 30 } },
+            { gx: 0, gy: -1, type: 'C', rot: 0, meeple: { color: 'red', role: 'knight', kind: 'city', group: 0, offsetX: 50, offsetY: 30 } },
             { gx: 1, gy: 0, type: 'U', rot: 1, meeple: null },
-            { gx: 2, gy: 0, type: 'W', rot: 0, meeple: { color: 'blue', role: 'robber', offsetX: 50, offsetY: 50 } },
-            { gx: 2, gy: -1, type: 'B', rot: 0, meeple: { color: 'blue', role: 'monk', offsetX: 50, offsetY: 48 } },
+            { gx: 2, gy: 0, type: 'W', rot: 0, meeple: { color: 'blue', role: 'robber', kind: 'road', group: 0, offsetX: 50, offsetY: 50 } },
+            { gx: 2, gy: -1, type: 'B', rot: 0, meeple: { color: 'blue', role: 'monk', kind: 'monastery', group: 0, offsetX: 50, offsetY: 48 } },
             { gx: 2, gy: 1, type: 'V', rot: 0, meeple: null },
             { gx: 1, gy: 1, type: 'V', rot: 1, meeple: null },
             { gx: -1, gy: 0, type: 'V', rot: 2, meeple: null },
             { gx: -1, gy: 1, type: 'U', rot: 0, meeple: null },
-            { gx: -1, gy: 2, type: 'A', rot: 2, meeple: { color: 'red', role: 'monk', offsetX: 50, offsetY: 48 } },
+            { gx: -1, gy: 2, type: 'A', rot: 2, meeple: { color: 'red', role: 'monk', kind: 'monastery', group: 0, offsetX: 50, offsetY: 48 } },
             { gx: 3, gy: 0, type: 'E', rot: 3, meeple: null },
             { gx: 0, gy: -2, type: 'I', rot: 1, meeple: null }
         ];
@@ -1333,8 +1656,15 @@
             gridMap.set(`${t.gx},${t.gy}`, { typeKey: t.type, rotation: t.rot, meeple: t.meeple });
         });
 
+        buildDeck();
+        sampleTiles.forEach(tile => {
+            const index = deck.indexOf(tile.type);
+            if (index >= 0) deck.splice(index, 1);
+        });
+        remainingDeckCount = deck.length;
         drawNextPlayerTile();
         resetView();
+        renderWorld();
         audio.playScore();
         showToast('✨ 已載入【繁榮王國】無縫大地圖範例！');
     }
@@ -1344,6 +1674,11 @@
         toast.textContent = msg;
         toast.classList.add('show');
         setTimeout(() => toast.classList.remove('show'), 2400);
+    }
+
+    function leaveToLobby() {
+        if (onlineSocket) onlineSocket.close();
+        window.location.href = 'index.html';
     }
 
     function toggleGalleryModal() {
@@ -1359,14 +1694,6 @@
                     ${renderTileSVG(key, 0, 68, `gal_${key}`)}
                     <div class="gallery-item-name">${def.name}</div>
                 `;
-                item.addEventListener('click', () => {
-                    if (turnPhase !== 'PLACE_TILE') return;
-                    currentTile.typeKey = key;
-                    currentTile.rotation = 0;
-                    modal.classList.add('hidden');
-                    audio.playSnap();
-                    renderWorld();
-                });
                 grid.appendChild(item);
             }
         }
@@ -1374,7 +1701,7 @@
 
     window.addEventListener('DOMContentLoaded', () => {
         resetGame();
-        generatePresetKingdom('prosperous');
+        if (isOnlineGame()) connectOnlineGame();
     });
 </script>
 </body>

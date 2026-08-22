@@ -6,15 +6,15 @@
     <meta name="theme-color" content="#121826">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>機上離線棋藝盒 - Pocket Game Hub (8-in-1)</title>
+    <title>機上離線棋藝盒 - Pocket Game Hub (9-in-1)</title>
     <link rel="stylesheet" href="css/style.css">
     <style>
-        .checkers-pill-group, .blokus-pill-group {
+        .checkers-pill-group, .blokus-pill-group, .carcassonne-pill-group {
             display: flex;
             gap: 8px;
             margin-top: 6px;
         }
-        .checkers-pill, .blokus-pill {
+        .checkers-pill, .blokus-pill, .carcassonne-pill {
             flex: 1;
             padding: 8px;
             background: #0f172a;
@@ -27,7 +27,7 @@
             cursor: pointer;
             transition: all 0.2s;
         }
-        .checkers-pill.active, .blokus-pill.active {
+        .checkers-pill.active, .blokus-pill.active, .carcassonne-pill.active {
             background: #38bdf8;
             color: #0f172a;
             border-color: #38bdf8;
@@ -41,7 +41,7 @@
     <header>
         <div class="logo">
             <span>✈️</span>
-            <span>口袋棋院 (8合1)</span>
+            <span>口袋棋院 (9合1)</span>
         </div>
         <div class="header-actions">
             <button class="icon-btn" onclick="window.sounds.toggleMute(); this.textContent = window.sounds.muted ? '🔇 靜音' : '🔊 音效';">
@@ -65,11 +65,11 @@
         </div>
 
         <div class="section-title">
-            <span>🎮 選擇遊戲（八合一）</span>
+            <span>🎮 選擇遊戲（九合一）</span>
         </div>
 
-        <!-- 8-Game Selection Grid -->
-        <div class="game-grid" style="grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px;">
+        <!-- 9-Game Selection Grid -->
+        <div class="game-grid" style="grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
             <!-- Game 1: Gomoku -->
             <div id="card-gomoku" class="game-card selected" onclick="window.app.selectGame('gomoku')">
                 <div class="game-icon">🎯</div>
@@ -125,6 +125,13 @@
                 <div class="game-name">德國圍棋</div>
                 <div class="game-tag">幾何地盤爭奪</div>
             </div>
+
+            <!-- Game 9: Carcassonne (standalone game experience) -->
+            <div id="card-carcassonne" class="game-card" onclick="window.app.selectGame('carcassonne')">
+                <div class="game-icon">🏰</div>
+                <div class="game-name">卡卡頌</div>
+                <div class="game-tag">拼圖・領地計分</div>
+            </div>
         </div>
 
         <!-- Chinese Checkers Config (shown when checkers is active) -->
@@ -143,6 +150,17 @@
                 <div class="blokus-pill active" data-count="2" onclick="window.app.setBlokusCount(2)">👥 2 人極速雙雄 (14x14)</div>
                 <div class="blokus-pill" data-count="4" onclick="window.app.setBlokusCount(4)">👥 4 人經典四方 (20x20)</div>
             </div>
+        </div>
+
+        <!-- Carcassonne Config -->
+        <div id="carcassonne-count-box" class="action-box hidden" style="margin-bottom: 12px; padding: 12px;">
+            <label style="font-size: 0.85rem; font-weight: 700; color: var(--accent);">🏰 卡卡頌玩家人數</label>
+            <div class="carcassonne-pill-group">
+                <div class="carcassonne-pill active" data-count="2" onclick="window.app.setCarcassonneCount(2)">👥 2 人</div>
+                <div class="carcassonne-pill" data-count="3" onclick="window.app.setCarcassonneCount(3)">👥 3 人</div>
+                <div class="carcassonne-pill" data-count="4" onclick="window.app.setCarcassonneCount(4)">👥 4 人</div>
+            </div>
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 8px;">支援同機輪流與房間連線；AI 模式暫不提供。</p>
         </div>
 
         <div class="section-title">
