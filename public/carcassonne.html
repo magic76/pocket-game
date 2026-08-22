@@ -104,6 +104,7 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.4);
         }
         button:active { transform: scale(0.95); }
+        button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
         button.primary { background: linear-gradient(135deg, #0284c7, #0369a1); border-color: #38bdf8; }
         button.gold-btn { background: linear-gradient(135deg, #b45309, #78350f); border-color: #fbbf24; color: #fef08a; }
 
@@ -123,6 +124,7 @@
             align-items: center;
             gap: 6px;
             min-width: 0;
+            transition: all 0.2s;
         }
         .player-card.active.red {
             border-color: #ef4444;
@@ -154,6 +156,11 @@
         .player-turn-indicator {
             font-size: 0.58rem; background: #f59e0b; color: #000;
             padding: 1px 3px; border-radius: 4px; font-weight: 900;
+            animation: pulseTurn 1s infinite alternate;
+        }
+        @keyframes pulseTurn {
+            from { opacity: 0.75; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1.05); }
         }
 
         .player-stats-line {
@@ -186,7 +193,6 @@
             position: absolute;
             top: 0; left: 0;
             transform-origin: 0 0;
-            /* ZERO transition during drag for 1:1 silky response */
             transition: none;
             will-change: transform;
             backface-visibility: hidden;
@@ -203,6 +209,9 @@
         .map-tile.just-placed {
             animation: tileDrop 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             z-index: 5;
+            outline: 3px solid #fbbf24;
+            outline-offset: -2px;
+            border-radius: 4px;
         }
         @keyframes tileDrop {
             0% { transform: scale(0.2); opacity: 0; }
@@ -256,12 +265,12 @@
             z-index: 500;
             box-shadow: 0 14px 35px rgba(0,0,0,0.9);
             animation: tileDrop 0.22s;
-            min-width: 200px;
+            min-width: 210px;
         }
         .meeple-picker-title { font-size: 0.8rem; font-weight: 800; color: var(--accent-gold); text-align: center; }
         .meeple-btn-group { display: flex; flex-direction: column; gap: 5px; }
         .meeple-choice-btn {
-            padding: 6px 10px; font-size: 0.78rem; border-radius: 8px;
+            padding: 7px 10px; font-size: 0.78rem; border-radius: 8px;
             background: #2b1f14; border: 1px solid #4a3523; color: #fff;
             display: flex; align-items: center; justify-content: space-between;
         }
@@ -447,12 +456,12 @@
         </div>
         <div class="hud-info">
             <div id="hud-tile-name" class="hud-title">鵝卵石古道 (Road)</div>
-            <div class="hud-desc">
+            <div class="hud-desc" id="hud-status-desc">
                 剩餘: <b id="deck-count-text">71/72</b> ｜ 點擊黃色 <b>[➕]</b> 拼放
             </div>
             <div class="hud-actions">
-                <button class="primary" onclick="rotateCurrentTile()">🔄 旋轉</button>
-                <button onclick="drawRandomTile()">🎲 抽牌</button>
+                <button id="btn-rotate" class="primary" onclick="rotateCurrentTile()">🔄 旋轉</button>
+                <button id="btn-draw" onclick="drawRandomTile()">🎲 抽牌</button>
             </div>
         </div>
     </div>
@@ -660,7 +669,6 @@
         // Organic Farmland Furrows & Grass Texture Details
         svg += `
             <path d="M 8 15 Q 25 12 38 16 M 12 24 Q 28 20 42 25 M 65 78 Q 80 75 92 80 M 60 86 Q 76 83 88 88" stroke="${p.furrowColor}" stroke-width="0.8" fill="none" opacity="0.6" />
-            <!-- Trees & Bushes -->
             <g transform="translate(18, 18)">
                 <ellipse cx="2" cy="3" rx="6" ry="4" fill="#000" opacity="0.25" />
                 <rect x="-1" y="0" width="2" height="4" fill="#4a2e12" />
@@ -674,7 +682,6 @@
                 <circle cx="0" cy="-2" r="5.2" fill="${p.foliage[0]}" />
                 <circle cx="-3" cy="-3" r="4" fill="${p.foliage[1]}" />
             </g>
-            <!-- Grazing Fluffy Sheep 🐑 -->
             <g transform="translate(24, 76)">
                 <ellipse cx="0" cy="0" rx="4" ry="2.8" fill="#f8fafc" />
                 <circle cx="3.8" cy="-1" r="1.8" fill="#334155" />
@@ -684,9 +691,8 @@
             </g>
         `;
 
-        // 2. High-Detail Castle / Fortress Walls with Baked Vector Shadows (Zero GPU Filter Cost)
+        // 2. High-Detail Castle / Fortress Walls
         if (def.cityType === 'north') {
-            // Baked Ambient Wall Shadow
             svg += `<path d="M 0 0 L 100 0 C 80 48, 20 48, 0 0 Z" fill="#000" opacity="0.32" />`;
             svg += `<path d="M 0 0 L 100 0 C 80 44, 20 44, 0 0 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" />`;
             svg += `<path d="M 6 10 L 18 10 L 18 2 M 32 10 L 44 10 L 44 2 M 58 10 L 70 10 L 70 2 M 84 10 L 94 10 L 94 2" stroke="#1c242c" stroke-width="2" fill="none" />`;
@@ -714,7 +720,7 @@
                 </g>
             `;
         } else if (def.cityType === 'corner') {
-            // CORNER CASTLE: North & East
+            // CORNER: North & East
             svg += `<path d="M 0 0 L 100 0 L 100 100 C 58 76, 26 44, 0 0 Z" fill="#000" opacity="0.32" />`;
             svg += `<path d="M 0 0 L 100 0 L 100 100 C 60 72, 28 40, 0 0 Z" fill="url(#wall_${tileUid})" stroke="#222b35" stroke-width="2.2" />`;
             svg += `
@@ -872,7 +878,7 @@
     }
 
     // ==========================================
-    // 🗺️ 60FPS SMOOTH PAN & PINCH ENGINE
+    // 🗺️ TURN ENGINE & STATE MACHINE
     // ==========================================
     const TILE_SIZE = 100;
     const gridMap = new Map();
@@ -881,6 +887,10 @@
     let scores = { red: 0, blue: 0 };
     let meeplesRemaining = { red: 7, blue: 7 };
     let remainingDeckCount = 71;
+
+    // Strict Turn Phases: 'PLACE_TILE' | 'DEPLOY_MEEPLE' | 'RESOLVING'
+    let turnPhase = 'PLACE_TILE';
+    let justPlacedCoords = null;
 
     let scale = 0.95;
     let panX = window.innerWidth / 2 - 50;
@@ -906,7 +916,7 @@
         }
     }
 
-    // Mouse Events
+    // Mouse & Touch Pan/Zoom Handlers
     viewportEl.addEventListener('mousedown', (e) => {
         if (e.target.closest('.placement-slot') || e.target.closest('.hud-overlay') || e.target.closest('.meeple-picker-overlay')) return;
         isDragging = true;
@@ -921,7 +931,6 @@
     });
     window.addEventListener('mouseup', () => { isDragging = false; });
 
-    // Touch Events (Single-finger pan + Two-finger pinch zoom)
     viewportEl.addEventListener('touchstart', (e) => {
         if (e.touches.length === 1) {
             isDragging = true;
@@ -1013,6 +1022,8 @@
     }
 
     function findValidPlacementSlots() {
+        if (turnPhase !== 'PLACE_TILE') return []; // NO slots allowed when deciding meeple!
+
         const candidateSlots = new Set();
         const directions = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 
@@ -1038,7 +1049,7 @@
     }
 
     // ==========================================
-    // 🏰 BOARD RENDERING & INTERACTION
+    // 🏰 BOARD RENDERING & STRICT TURN CONTROL
     // ==========================================
     function renderWorld(justPlacedKey = null) {
         worldEl.innerHTML = '';
@@ -1063,27 +1074,36 @@
             }
         }
 
-        const validSlots = findValidPlacementSlots();
-        validSlots.forEach(({ gx, gy }) => {
-            const slotDiv = document.createElement('div');
-            slotDiv.className = 'placement-slot';
-            slotDiv.style.left = `${gx * TILE_SIZE}px`;
-            slotDiv.style.top = `${gy * TILE_SIZE}px`;
-            slotDiv.innerHTML = `<span class="slot-plus">＋</span>`;
-            
-            slotDiv.addEventListener('click', () => {
-                handleTilePlacement(gx, gy);
-            });
+        // ONLY render [+] slots during PLACE_TILE phase
+        if (turnPhase === 'PLACE_TILE') {
+            const validSlots = findValidPlacementSlots();
+            validSlots.forEach(({ gx, gy }) => {
+                const slotDiv = document.createElement('div');
+                slotDiv.className = 'placement-slot';
+                slotDiv.style.left = `${gx * TILE_SIZE}px`;
+                slotDiv.style.top = `${gy * TILE_SIZE}px`;
+                slotDiv.innerHTML = `<span class="slot-plus">＋</span>`;
+                
+                slotDiv.addEventListener('click', () => {
+                    handleTilePlacement(gx, gy);
+                });
 
-            worldEl.appendChild(slotDiv);
-        });
+                worldEl.appendChild(slotDiv);
+            });
+        }
 
         updateScoreboard();
         updateHUD();
     }
 
+    // PHASE 1: Tile Placement (STRICT SINGLE-ACTION LOCK)
     function handleTilePlacement(gx, gy) {
+        if (turnPhase !== 'PLACE_TILE') return; // BLOCK any multi-clicks!
+
         audio.playSnap();
+
+        turnPhase = 'DEPLOY_MEEPLE'; // Lock state to Phase 2
+        justPlacedCoords = { gx, gy };
 
         const placedKey = `${gx},${gy}`;
         const placedTile = {
@@ -1094,8 +1114,10 @@
         gridMap.set(placedKey, placedTile);
         remainingDeckCount = Math.max(0, remainingDeckCount - 1);
 
+        // Re-render world immediately removing all [+] slots!
         renderWorld(placedKey);
 
+        // Prompt meeple follower deployment
         if (meeplesRemaining[activePlayer] > 0) {
             showMeepleDeployPicker(gx, gy, placedTile);
         } else {
@@ -1103,6 +1125,7 @@
         }
     }
 
+    // PHASE 2: Meeple Choice Dialog
     function showMeepleDeployPicker(gx, gy, tileData) {
         const picker = document.createElement('div');
         picker.className = 'meeple-picker-overlay';
@@ -1113,15 +1136,15 @@
         let buttonsHtml = '';
 
         if (def.cityType) {
-            buttonsHtml += `<button class="meeple-choice-btn" onclick="deployMeepleAt(${gx}, ${gy}, 'knight', 50, 30)"><span>🏰 派遣騎士 (入駐城堡)</span><span>⚔️</span></button>`;
+            buttonsHtml += `<button class="meeple-choice-btn" onclick="deployMeepleAt('knight', 50, 30)"><span>🏰 派遣騎士 (入駐城堡)</span><span>⚔️</span></button>`;
         }
         if (def.roadType) {
-            buttonsHtml += `<button class="meeple-choice-btn" onclick="deployMeepleAt(${gx}, ${gy}, 'robber', 50, 50)"><span>🛣️ 派遣強盜 (巡邏道路)</span><span>🏹</span></button>`;
+            buttonsHtml += `<button class="meeple-choice-btn" onclick="deployMeepleAt('robber', 50, 50)"><span>🛣️ 派遣強盜 (巡邏道路)</span><span>🏹</span></button>`;
         }
         if (def.hasMonastery) {
-            buttonsHtml += `<button class="meeple-choice-btn" onclick="deployMeepleAt(${gx}, ${gy}, 'monk', 50, 48)"><span>⛪ 派遣修道士 (主持神廟)</span><span>✝️</span></button>`;
+            buttonsHtml += `<button class="meeple-choice-btn" onclick="deployMeepleAt('monk', 50, 48)"><span>⛪ 派遣修道士 (主持神廟)</span><span>✝️</span></button>`;
         }
-        buttonsHtml += `<button class="meeple-choice-btn" onclick="deployMeepleAt(${gx}, ${gy}, null)"><span>⏭️ 保留米波 (不派遣)</span><span>✋</span></button>`;
+        buttonsHtml += `<button class="meeple-choice-btn" onclick="deployMeepleAt(null)"><span>⏭️ 保留米波 (不派遣)</span><span>✋</span></button>`;
 
         picker.innerHTML = `
             <div class="meeple-picker-title">👤 ${activePlayer === 'red' ? '紅方' : '藍方'} 領主：派遣米波跟隨者？</div>
@@ -1131,7 +1154,10 @@
         worldEl.appendChild(picker);
     }
 
-    window.deployMeepleAt = function(gx, gy, role, ox = 50, oy = 50) {
+    window.deployMeepleAt = function(role, ox = 50, oy = 50) {
+        if (turnPhase !== 'DEPLOY_MEEPLE' || !justPlacedCoords) return;
+
+        const { gx, gy } = justPlacedCoords;
         const tile = gridMap.get(`${gx},${gy}`);
         if (tile && role) {
             tile.meeple = { color: activePlayer, role, offsetX: ox, offsetY: oy };
@@ -1139,15 +1165,27 @@
             audio.playMeeple();
             showToast(`👤 ${activePlayer === 'red' ? '紅方' : '藍方'} 派遣了 ${role === 'knight' ? '騎士' : role === 'robber' ? '強盜' : '修道士'}！`);
         }
+
         document.querySelectorAll('.meeple-picker-overlay').forEach(el => el.remove());
-        renderWorld();
         finishTurnAndCheckScoring(gx, gy);
     };
 
+    // PHASE 3: Scoring & Switch Player Turn
     function finishTurnAndCheckScoring(gx, gy) {
+        turnPhase = 'RESOLVING';
+
         checkMonasteriesScoring();
+
+        // Switch to Next Player
         activePlayer = activePlayer === 'red' ? 'blue' : 'red';
-        drawRandomTile();
+        
+        // Draw Next Tile
+        drawNextPlayerTile();
+
+        turnPhase = 'PLACE_TILE'; // Unlocked for next player!
+        renderWorld();
+
+        showToast(`▶ 輪到【${activePlayer === 'red' ? '紅方' : '藍方'}領主】行動！請拼放板塊`);
     }
 
     function checkMonasteriesScoring() {
@@ -1185,14 +1223,20 @@
         setTimeout(() => pop.remove(), 2000);
     }
 
-    function drawRandomTile() {
+    function drawNextPlayerTile() {
         const keys = Object.keys(TILE_DEFS);
         currentTile.typeKey = keys[Math.floor(Math.random() * keys.length)];
         currentTile.rotation = 0;
+    }
+
+    function drawRandomTile() {
+        if (turnPhase !== 'PLACE_TILE') return;
+        drawNextPlayerTile();
         renderWorld();
     }
 
     function rotateCurrentTile() {
+        if (turnPhase !== 'PLACE_TILE') return;
         currentTile.rotation = (currentTile.rotation + 1) % 4;
         audio.playSnap();
         renderWorld();
@@ -1216,6 +1260,17 @@
     function updateHUD() {
         document.getElementById('hud-rotator').innerHTML = renderTileSVG(currentTile.typeKey, currentTile.rotation, 72, 'hud_current');
         document.getElementById('hud-tile-name').textContent = TILE_DEFS[currentTile.typeKey].name;
+
+        const isPlacing = turnPhase === 'PLACE_TILE';
+        document.getElementById('btn-rotate').disabled = !isPlacing;
+        document.getElementById('btn-draw').disabled = !isPlacing;
+
+        const statusDesc = document.getElementById('hud-status-desc');
+        if (turnPhase === 'DEPLOY_MEEPLE') {
+            statusDesc.innerHTML = `<span style="color: #fbbf24; font-weight: 800;">請選擇是否派遣米波跟隨者 👤</span>`;
+        } else {
+            statusDesc.innerHTML = `剩餘: <b id="deck-count-text">${remainingDeckCount}/72</b> ｜ 點擊黃色 <b>[➕]</b> 拼放`;
+        }
     }
 
     function resetGame() {
@@ -1224,9 +1279,11 @@
         meeplesRemaining = { red: 7, blue: 7 };
         remainingDeckCount = 71;
         activePlayer = 'red';
+        turnPhase = 'PLACE_TILE';
+        justPlacedCoords = null;
 
         gridMap.set('0,0', { typeKey: 'J', rotation: 0, meeple: null });
-        drawRandomTile();
+        drawNextPlayerTile();
         resetView();
         showToast('🔄 已重新開局！起始城門板塊置於中心');
     }
@@ -1236,6 +1293,9 @@
         scores = { red: 18, blue: 12 };
         meeplesRemaining = { red: 4, blue: 5 };
         remainingDeckCount = 56;
+        activePlayer = 'red';
+        turnPhase = 'PLACE_TILE';
+        justPlacedCoords = null;
 
         const sampleTiles = [
             { gx: 0, gy: 0, type: 'J', rot: 0, meeple: null },
@@ -1256,7 +1316,7 @@
             gridMap.set(`${t.gx},${t.gy}`, { typeKey: t.type, rotation: t.rot, meeple: t.meeple });
         });
 
-        drawRandomTile();
+        drawNextPlayerTile();
         resetView();
         audio.playScore();
         showToast('✨ 已載入【繁榮王國】無縫大地圖範例！');
@@ -1283,6 +1343,7 @@
                     <div class="gallery-item-name">${def.name}</div>
                 `;
                 item.addEventListener('click', () => {
+                    if (turnPhase !== 'PLACE_TILE') return;
                     currentTile.typeKey = key;
                     currentTile.rotation = 0;
                     modal.classList.add('hidden');
