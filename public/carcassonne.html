@@ -126,6 +126,20 @@
             font-size: .8rem;
             font-weight: 900;
         }
+        .room-code-badge {
+            min-height: 42px;
+            padding: 0 9px;
+            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            background: #2b1d0d;
+            border-color: #d97706;
+            border: 1px solid #d97706;
+            color: #fde68a;
+            font-size: .76rem;
+            font-weight: 900;
+        }
+        .room-code-badge.hidden { display: none; }
 
         /* Row 2: Player Status Cards */
         .header-scoreboard-row {
@@ -133,6 +147,29 @@
             grid-template-columns: 1fr 1fr;
             gap: 6px;
             width: 100%;
+        }
+        .header-game-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            width: 100%;
+        }
+        .header-game-actions button {
+            min-height: 42px;
+            justify-content: center;
+            border-radius: 10px;
+            font-size: .78rem;
+            font-weight: 900;
+        }
+        .restart-game-button {
+            background: #2a1e14;
+            border-color: #72512d;
+            color: #fde68a;
+        }
+        .leave-game-button {
+            background: #075985;
+            border-color: #38bdf8;
+            color: #f0f9ff;
         }
         .player-card {
             background: #140e08;
@@ -246,10 +283,11 @@
             pointer-events: none;
             background-color: #777e87;
             background-image:
+                url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cpath d='M0 0H100M0 0V100' fill='none' stroke='%23d8dee6' stroke-opacity='.32' stroke-width='1' stroke-dasharray='4 5'/%3E%3C/svg%3E"),
                 radial-gradient(circle at 28% 36%, rgba(255,255,255,0.11) 0 1px, transparent 1.5px),
                 radial-gradient(circle at 72% 64%, rgba(20,26,34,0.11) 0 1px, transparent 1.5px),
                 linear-gradient(rgba(255,255,255,0.025), rgba(16,22,30,0.09));
-            background-size: 27px 27px, 37px 37px, auto;
+            background-size: 100px 100px, 27px 27px, 37px 37px, auto;
         }
 
         /* 3D Physical Cardboard Punchboard Tiles */
@@ -590,13 +628,16 @@
             <span>卡卡頌</span>
         </div>
         <div class="header-tools">
-            <button class="return-lobby-btn" onclick="leaveToLobby()" aria-label="回到遊戲大廳" title="回到遊戲大廳">🏠 大廳</button>
+            <span id="online-room-code" class="room-code-badge hidden" aria-label="目前房間號碼"></span>
             <button class="icon-btn" onclick="toggleGalleryModal()" aria-label="卡片圖鑑" title="卡片圖鑑">📚</button>
-            <button class="icon-btn" onclick="resetGame()" aria-label="重新開始" title="重新開始">↻</button>
         </div>
     </div>
 
     <div id="player-scoreboard" class="header-scoreboard-row"></div>
+    <div class="header-game-actions">
+        <button class="restart-game-button" onclick="restartCarcassonneGame()">🔄 重新開局</button>
+        <button class="leave-game-button" onclick="leaveToLobby()">🚪 返回大廳</button>
+    </div>
 </header>
 
 <!-- 60FPS Hardware Accelerated Viewport -->
@@ -1203,6 +1244,11 @@
     const gameParams = new URLSearchParams(window.location.search);
     const gameMode = gameParams.get('mode') || 'hotseat';
     const onlineRoomId = gameParams.get('room');
+    const roomCodeButton = document.getElementById('online-room-code');
+    if (onlineRoomId) {
+        roomCodeButton.textContent = `房號 ${onlineRoomId}`;
+        roomCodeButton.classList.remove('hidden');
+    }
     let playerCount = Math.max(2, Math.min(4, Number(gameParams.get('players')) || 2));
     let onlineSocket = null;
     let onlineRoomState = null;
@@ -1433,6 +1479,14 @@
         document.getElementById('reaction-panel').classList.toggle('hidden');
     };
 
+    window.restartCarcassonneGame = function() {
+        if (isOnlineGame() && onlineSocket?.readyState === WebSocket.OPEN) {
+            onlineSocket.send(JSON.stringify({ type: 'restart' }));
+        } else {
+            resetGame();
+        }
+    };
+
     window.sendCarcassonneReaction = function(emoji) {
         document.getElementById('reaction-panel').classList.add('hidden');
         const sender = isOnlineGame() ? ROLE_TO_PLAYER[myRole] : activePlayer;
@@ -1452,6 +1506,7 @@
         viewportEl.appendChild(reaction);
         setTimeout(() => reaction.remove(), 2450);
     }
+
 
     // ==========================================
     // 🧱 PLACEMENT VALIDATION

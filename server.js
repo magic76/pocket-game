@@ -43,6 +43,51 @@ function generateRoomId() {
     return Math.floor(1000 + Math.random() * 9000).toString();
 }
 
+function getInitialTurn(gameType) {
+    if (gameType === 'xiangqi' || gameType === 'checkers' || gameType === 'connect4') return 'red';
+    if (gameType === 'chess') return 'white';
+    if (gameType === 'uttt') return 'X';
+    if (gameType === 'blokus') return 'blue';
+    if (gameType === 'carcassonne') return 'red';
+    return 'black';
+}
+
+// Roles are transport identities; each game uses its own piece colours.  This
+// mapping lets the server reject an out-of-turn client even if it forges a move.
+function getRoleForGameTurn(room, turn) {
+    const twoPlayer = {
+        gomoku: { black: 'black', white: 'white' },
+        reversi: { black: 'black', white: 'white' },
+        xiangqi: { red: 'black', black: 'white' },
+        chess: { white: 'black', black: 'white' },
+        connect4: { red: 'black', yellow: 'white' },
+        uttt: { X: 'black', O: 'white' }
+    };
+    if (twoPlayer[room.gameType]) return twoPlayer[room.gameType][turn] || null;
+    if (room.gameType === 'checkers') {
+        const turns = room.playerCount === 3 ? ['red', 'green', 'blue'] : ['red', 'green'];
+        return ['black', 'white', 'blue'][turns.indexOf(turn)] || null;
+    }
+    if (room.gameType === 'blokus') {
+        const turns = room.playerCount === 4 ? ['blue', 'yellow', 'red', 'green'] : ['blue', 'orange'];
+        return ['black', 'white', 'blue', 'green'][turns.indexOf(turn)] || null;
+    }
+    return null;
+}
+
+function getOpenRooms() {
+    return [...rooms.values()]
+        .filter(room => room.status === 'waiting' && room.players.black)
+        .map(room => ({
+            roomId: room.id,
+            gameType: room.gameType,
+            playerCount: room.playerCount || 2,
+            joinedCount: ['black', 'white', 'blue', 'green'].slice(0, room.playerCount || 2)
+                .filter(role => room.players[role]).length,
+            hostName: room.players.black.name
+        }));
+}
+
 // Create HTTP server
 const server = http.createServer(async (req, res) => {
     const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
@@ -69,6 +114,33 @@ const server = http.createServer(async (req, res) => {
             primaryUrl,
             qrDataUrl
         }));
+        return;
+    }
+
+    // The lobby uses this local-only endpoint to offer one-tap joins.  Only
+    // waiting rooms are exposed; in-progress games never appear in the list.
+    if (pathname === '/api/rooms') {
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+        res.end(JSON.stringify({ rooms: getOpenRooms() }));
+        return;
+    }
+
+    // A room-specific invite sends a guest straight into the selected room.
+    // This is used by every game, including the standalone Carcassonne page.
+    if (pathname === '/api/room-invite') {
+        const roomId = parsedUrl.searchParams.get('room');
+        const room = roomId ? rooms.get(roomId) : null;
+        if (!room || room.status === 'ended') {
+            res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({ error: '房間不存在或已結束' }));
+            return;
+        }
+        const ips = getLocalIPs();
+        const primaryIp = ips.find(i => i.address.startsWith('192.168.43.') || i.address.startsWith('192.168.'))?.address || ips[0]?.address || '127.0.0.1';
+        const inviteUrl = `http://${primaryIp}:${PORT}/?room=${encodeURIComponent(roomId)}`;
+        const qrDataUrl = await QRCode.toDataURL(inviteUrl, { margin: 1, width: 320 });
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+        res.end(JSON.stringify({ roomId, inviteUrl, qrDataUrl }));
         return;
     }
 
@@ -163,12 +235,7 @@ wss.on('connection', (ws) => {
                     ? Math.max(2, Math.min(4, Number(playerCount) || 2))
                     : (playerCount || 2);
 
-                let initialTurn = 'black';
-                if (gameType === 'xiangqi' || gameType === 'checkers' || gameType === 'connect4') initialTurn = 'red';
-                else if (gameType === 'chess') initialTurn = 'white';
-                else if (gameType === 'uttt') initialTurn = 'X';
-                else if (gameType === 'blokus') initialTurn = 'blue';
-                else if (gameType === 'carcassonne') initialTurn = 'red';
+                const initialTurn = getInitialTurn(gameType);
 
                 const newRoom = {
                     id: roomId,
@@ -295,6 +362,12 @@ wss.on('connection', (ws) => {
                 const room = rooms.get(currentRoomId);
                 if (!room) return;
 
+                const expectedRole = getRoleForGameTurn(room, room.turn);
+                if (currentRole === 'spectator' || !expectedRole || currentRole !== expectedRole) {
+                    ws.send(JSON.stringify({ type: 'error', message: '現在不是你的回合' }));
+                    return;
+                }
+
                 const { x, y, col, from, to, board, subBoards, mainBoard, activeBoard, playerPieces, nextTurn, winner, scores, capturedCount } = data;
 
                 if (board !== undefined) room.board = board;
@@ -325,7 +398,7 @@ wss.on('connection', (ws) => {
                 const room = rooms.get(currentRoomId);
                 if (!room) return;
 
-                const initialTurn = (room.gameType === 'xiangqi' || room.gameType === 'carcassonne') ? 'red' : (room.gameType === 'chess' ? 'white' : 'black');
+                const initialTurn = getInitialTurn(room.gameType);
                 room.board = null;
                 room.carcassonneState = null;
                 room.turn = initialTurn;

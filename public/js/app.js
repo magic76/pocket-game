@@ -45,6 +45,18 @@ class PocketApp {
 
         this.initDOM();
         this.fetchServerInfo();
+        this.fetchOpenRooms();
+        this.openRoomsRefreshTimer = setInterval(() => {
+            if (!this.dom.viewLobby.classList.contains('hidden') && this.currentMode === 'online') this.fetchOpenRooms();
+        }, 5000);
+
+        const invitedRoomId = new URLSearchParams(window.location.search).get('room');
+        if (/^\d{4}$/.test(invitedRoomId || '')) {
+            this.dom.roomIdInput.value = invitedRoomId;
+            // A QR invite is meant to be one tap: use the saved guest name and
+            // join as soon as this lobby has initialised.
+            setTimeout(() => this.joinOnlineRoom(), 0);
+        }
     }
 
     initDOM() {
@@ -53,6 +65,7 @@ class PocketApp {
             viewGame: document.getElementById('view-game'),
             playerNameInput: document.getElementById('player-name-input'),
             roomIdInput: document.getElementById('room-id-input'),
+            openRoomsList: document.getElementById('open-rooms-list'),
             gameTitleText: document.getElementById('game-title-text'),
             roomBadgeText: document.getElementById('room-badge-text'),
             boardContainer: document.getElementById('board-container'),
@@ -115,6 +128,58 @@ class PocketApp {
         } catch (e) {
             console.warn('Could not fetch server info:', e);
         }
+    }
+
+    async fetchOpenRooms() {
+        if (!this.dom.openRoomsList) return;
+        try {
+            const res = await fetch('/api/rooms', { cache: 'no-store' });
+            const { rooms = [] } = await res.json();
+            this.renderOpenRooms(rooms);
+        } catch (e) {
+            this.dom.openRoomsList.innerHTML = '<div class="open-room-empty">暫時無法取得房間</div>';
+        }
+    }
+
+    renderOpenRooms(rooms) {
+        const list = this.dom.openRoomsList;
+        if (!list) return;
+        list.innerHTML = '';
+        if (!rooms.length) {
+            list.innerHTML = '<div class="open-room-empty">目前沒有等待中的房間</div>';
+            return;
+        }
+
+        const names = {
+            gomoku: '🎯 五子棋', reversi: '⚪⚫ 黑白棋', xiangqi: '🀄 中國象棋', chess: '♟️ 西洋棋',
+            checkers: '⭐ 六角跳棋', connect4: '🟡🔴 重力四子棋', uttt: '❌⭕ 終極井字棋',
+            blokus: '🧱 德國圍棋', carcassonne: '🏰 卡卡頌'
+        };
+        rooms.forEach(room => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'open-room-entry';
+            const main = document.createElement('span');
+            main.className = 'open-room-main';
+            const title = document.createElement('span');
+            title.className = 'open-room-name';
+            title.textContent = names[room.gameType] || room.gameType;
+            const meta = document.createElement('span');
+            meta.className = 'open-room-meta';
+            meta.textContent = `房號 ${room.roomId}・${room.joinedCount}/${room.playerCount} 人`;
+            const join = document.createElement('span');
+            join.className = 'open-room-join';
+            join.textContent = '加入 →';
+            main.append(title, meta);
+            button.append(main, join);
+            button.addEventListener('click', () => this.joinDiscoveredRoom(room.roomId));
+            list.appendChild(button);
+        });
+    }
+
+    joinDiscoveredRoom(roomId) {
+        this.dom.roomIdInput.value = roomId;
+        this.joinOnlineRoom();
     }
 
     get activeEngine() {
@@ -186,6 +251,7 @@ class PocketApp {
         this.dom.onlinePanel.classList.toggle('hidden', mode !== 'online');
         this.dom.hotseatPanel.classList.toggle('hidden', mode !== 'hotseat');
         this.dom.aiPanel.classList.toggle('hidden', mode !== 'ai');
+        if (mode === 'online') this.fetchOpenRooms();
         window.sounds.playPing();
     }
 
@@ -200,6 +266,34 @@ class PocketApp {
     // ==========================================
     // 🌐 ONLINE WEBSOCKET HANDLING
     // ==========================================
+    getOnlineRoleForTurn() {
+        const engine = this.activeEngine;
+        const turn = engine?.turn;
+        const standard = {
+            gomoku: { black: 'black', white: 'white' },
+            reversi: { black: 'black', white: 'white' },
+            xiangqi: { red: 'black', black: 'white' },
+            chess: { white: 'black', black: 'white' },
+            connect4: { red: 'black', yellow: 'white' },
+            uttt: { X: 'black', O: 'white' }
+        };
+        if (standard[this.selectedGame]) return standard[this.selectedGame][turn] || null;
+        if (this.selectedGame === 'checkers') {
+            const turns = engine.playerCount === 3 ? ['red', 'green', 'blue'] : ['red', 'green'];
+            return ['black', 'white', 'blue'][turns.indexOf(turn)] || null;
+        }
+        if (this.selectedGame === 'blokus') {
+            const turns = engine.playerCount === 4 ? ['blue', 'yellow', 'red', 'green'] : ['blue', 'orange'];
+            return ['black', 'white', 'blue', 'green'][turns.indexOf(turn)] || null;
+        }
+        return null;
+    }
+
+    isMyOnlineTurn() {
+        if (this.currentMode !== 'online') return true;
+        return this.roomState?.status === 'playing' && this.myRole === this.getOnlineRoleForTurn();
+    }
+
     connectWS(onOpen) {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
             if (onOpen) onOpen();
@@ -272,7 +366,6 @@ class PocketApp {
             }
             this.activeEngine.reset();
             this.enterGameView();
-            this.showQRModal();
             this.showToast(`房間已建立！房號: ${this.roomId}`);
         }
 
@@ -389,6 +482,9 @@ class PocketApp {
         const params = new URLSearchParams({
             mode,
             players: String(playerCount),
+            // The dedicated page reconnects through WebSocket.  Carry the
+            // original name so the creator can reclaim the black/first-player
+            // slot instead of accidentally joining as a second player.
             name: this.playerName
         });
         if (roomId) params.set('room', roomId);
@@ -508,6 +604,10 @@ class PocketApp {
     }
 
     handleCheckersHoleClick(holeId) {
+        if (this.currentMode === 'online' && !this.isMyOnlineTurn()) {
+            this.showToast(this.roomState?.status !== 'playing' ? '⌛ 等待其他玩家加入' : '⌛ 現在輪到對方');
+            return;
+        }
         const engine = this.engines.checkers;
         if (engine.winner) return;
         if (this.currentMode === 'ai' && engine.turn !== 'red') return;
@@ -776,7 +876,10 @@ class PocketApp {
     }
 
     handleOnlineCellClick(x, y, extra) {
-        if (this.myRole === 'spectator') return;
+        if (!this.isMyOnlineTurn()) {
+            this.showToast(this.roomState?.status !== 'playing' ? '⌛ 等待其他玩家加入' : '⌛ 現在輪到對方');
+            return;
+        }
         const engine = this.activeEngine;
         
         if (this.selectedGame === 'gomoku' || this.selectedGame === 'reversi') {
@@ -1494,7 +1597,10 @@ class PocketApp {
                     const target = getBoardCellAt(upEvent.clientX, upEvent.clientY);
                     if (!target) return;
                     this.selectedBlokusPieceId = p.id;
-                    this.currentBlokusShape = BlokusEngine.normalize(p.coords);
+                    // `dragShape` includes the current rotate/flip state. Do
+                    // not restore p.coords here, or the placed polyomino will
+                    // silently snap back to its original orientation.
+                    this.currentBlokusShape = BlokusEngine.normalize(dragShape);
                     this.blokusPendingPlacement = {
                         originY: Number(target.dataset.boardY),
                         originX: Number(target.dataset.boardX),
@@ -1567,6 +1673,10 @@ class PocketApp {
 
     passBlokusTurn() {
         if (this.selectedGame !== 'blokus') return;
+        if (!this.isMyOnlineTurn()) {
+            this.showToast('⌛ 現在輪到對方');
+            return;
+        }
         const engine = this.activeEngine;
         this.blokusPendingPlacement = null;
         engine.passTurn();
@@ -1596,7 +1706,10 @@ class PocketApp {
 
     confirmBlokusPlacement() {
         if (this.selectedGame !== 'blokus' || !this.blokusPendingPlacement) return;
-        if (this.currentMode === 'online' && this.myRole === 'spectator') return;
+        if (!this.isMyOnlineTurn()) {
+            this.showToast('⌛ 現在輪到對方');
+            return;
+        }
 
         const engine = this.activeEngine;
         const { originY, originX, pieceId } = this.blokusPendingPlacement;
@@ -1777,11 +1890,19 @@ class PocketApp {
         this.dom.winModal.classList.remove('hidden');
     }
 
-    showQRModal() {
-        if (this.serverInfo) {
-            if (this.serverInfo.qrDataUrl) {
-                this.dom.qrImage.src = this.serverInfo.qrDataUrl;
+    async showQRModal() {
+        if (this.roomId) {
+            try {
+                const res = await fetch(`/api/room-invite?room=${encodeURIComponent(this.roomId)}`, { cache: 'no-store' });
+                if (!res.ok) throw new Error('invite unavailable');
+                const invite = await res.json();
+                this.dom.qrImage.src = invite.qrDataUrl;
+                this.dom.qrUrlText.textContent = invite.inviteUrl;
+            } catch (e) {
+                this.showToast('暫時無法建立房間 QR Code');
             }
+        } else if (this.serverInfo) {
+            if (this.serverInfo.qrDataUrl) this.dom.qrImage.src = this.serverInfo.qrDataUrl;
             this.dom.qrUrlText.textContent = this.serverInfo.primaryUrl;
         }
         this.dom.qrRoomCode.textContent = this.roomId || '----';

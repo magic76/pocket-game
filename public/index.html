@@ -32,6 +32,16 @@
             color: #0f172a;
             border-color: #38bdf8;
         }
+        .open-rooms { margin: 2px 0 12px; }
+        .open-rooms-title { font-size: .78rem; color: var(--text-muted); font-weight: 800; margin: 0 0 6px; }
+        .open-rooms-list { display: grid; gap: 6px; }
+        .open-room-entry { width: 100%; min-height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 10px; background: #172235; border: 1px solid #334155; border-radius: 10px; color: #f8fafc; text-align: left; }
+        .open-room-entry:active { transform: scale(.98); border-color: #38bdf8; }
+        .open-room-main { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+        .open-room-name { font-size: .84rem; font-weight: 850; }
+        .open-room-meta { font-size: .7rem; color: #94a3b8; }
+        .open-room-join { flex: 0 0 auto; color: #7dd3fc; font-size: .78rem; font-weight: 900; }
+        .open-room-empty { color: #64748b; font-size: .76rem; padding: 8px 0; }
     </style>
 </head>
 <body>
@@ -184,6 +194,10 @@
                 <button class="btn-primary" style="width: 100%; margin-bottom: 10px;" onclick="window.app.createOnlineRoom()">
                     <span>✨ 建立新房間（我是房主）</span>
                 </button>
+                <div id="open-rooms" class="open-rooms">
+                    <div class="open-rooms-title">可加入的房間</div>
+                    <div id="open-rooms-list" class="open-rooms-list"><div class="open-room-empty">正在找房間…</div></div>
+                </div>
                 <div style="display: flex; gap: 8px;">
                     <input id="room-id-input" type="number" class="form-input" placeholder="輸入 4 位數房號" style="flex: 1;">
                     <button class="btn-secondary" onclick="window.app.joinOnlineRoom()" style="padding: 0 16px;">
