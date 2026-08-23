@@ -36,6 +36,9 @@ class PocketApp {
         // Blokus Piece state
         this.selectedBlokusPieceId = 0;
         this.currentBlokusShape = null;
+        // A drop is always previewed before it is committed.  This prevents a
+        // small mobile tap from immediately spending a polyomino.
+        this.blokusPendingPlacement = null;
 
         // Network Info
         this.serverInfo = null;
@@ -309,6 +312,7 @@ class PocketApp {
             this.currentValidDestinations = [];
             this.selectedHoleId = null;
             this.checkersValidDestinations = [];
+            this.blokusPendingPlacement = null;
             this.renderOnlineBoard();
 
             if (this.roomState.winner) {
@@ -323,6 +327,7 @@ class PocketApp {
             this.currentValidDestinations = [];
             this.selectedHoleId = null;
             this.checkersValidDestinations = [];
+            this.blokusPendingPlacement = null;
             this.renderOnlineBoard();
             this.hideModals();
             this.showToast(`🔄 ${data.by} 重新開局！`);
@@ -672,6 +677,7 @@ class PocketApp {
         this.currentValidDestinations = [];
         this.selectedHoleId = null;
         this.checkersValidDestinations = [];
+        this.blokusPendingPlacement = null;
         this.renderLocalBoard();
         this.hideModals();
         this.showToast('🔄 棋局已重置');
@@ -736,6 +742,7 @@ class PocketApp {
         this.currentValidDestinations = [];
         this.selectedHoleId = null;
         this.checkersValidDestinations = [];
+        this.blokusPendingPlacement = null;
         this.hideModals();
         this.dom.viewGame.classList.add('hidden');
         this.dom.viewLobby.classList.remove('hidden');
@@ -788,10 +795,11 @@ class PocketApp {
             const piece = engine.playerPieces[engine.turn].find(p => p.id === this.selectedBlokusPieceId);
             if (!piece || piece.used) return;
             const shape = this.currentBlokusShape || piece.coords;
+            const placedPieceId = this.selectedBlokusPieceId;
             const valid = engine.placePiece(this.selectedBlokusPieceId, shape, originY, originX);
             if (valid) {
                 this.selectNextUnusedBlokusPiece();
-                this.sendOnlineMovePayload({ pieceId: this.selectedBlokusPieceId, shape, originY, originX });
+                this.sendOnlineMovePayload({ pieceId: placedPieceId, shape, originY, originX });
             }
         } else {
             this.handlePieceSelectionMove(x, y, (fx, fy, tx, ty) => {
@@ -1229,6 +1237,11 @@ class PocketApp {
         }
 
         const activeShape = this.currentBlokusShape || (currentPiece ? currentPiece.coords : [[0,0]]);
+        const pending = this.blokusPendingPlacement;
+        const pendingIsCurrentPiece = pending && pending.pieceId === this.selectedBlokusPieceId;
+        const pendingIsValid = pendingIsCurrentPiece && engine.isValidPlacement(
+            engine.turn, activeShape, pending.originY, pending.originX
+        );
 
         // 1. Top HUD (Active Piece Preview & Action Buttons)
         const hudEl = document.createElement('div');
@@ -1243,8 +1256,9 @@ class PocketApp {
 
         const infoBox = document.createElement('div');
         infoBox.innerHTML = `
-            <div style="font-size: 0.85rem; font-weight: 800; color: #fff;">當前方塊: ${activeShape.length}格</div>
-            <div style="font-size: 0.75rem; color: var(--text-muted);">點擊棋盤放置</div>
+            <div style="font-size: 0.85rem; font-weight: 800; color: #fff;">${activeShape.length} 格方塊</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted);">拖到棋盤，放手先預覽</div>
+            <div class="blokus-rule-hint">${engine.isFirstMove(engine.turn) ? '⭐ 第一塊蓋住星星' : '◇ 只能和自己角碰角'}</div>
         `;
 
         previewContainer.appendChild(pBox);
@@ -1254,9 +1268,9 @@ class PocketApp {
         actionsBox.style.display = 'flex';
         actionsBox.style.gap = '6px';
         actionsBox.innerHTML = `
-            <button class="btn-secondary" style="padding: 6px 10px; font-size: 0.75rem;" onclick="window.app.rotateBlokusPiece()">🔄 旋轉</button>
-            <button class="btn-secondary" style="padding: 6px 10px; font-size: 0.75rem;" onclick="window.app.flipBlokusPiece()">⇄ 翻轉</button>
-            <button class="btn-primary" style="padding: 6px 10px; font-size: 0.75rem; background: #dc2626;" onclick="window.app.passBlokusTurn()">⏭️ PASS</button>
+            <button class="btn-secondary blokus-icon-button" aria-label="旋轉" onclick="window.app.rotateBlokusPiece()">↻</button>
+            <button class="btn-secondary blokus-icon-button" aria-label="翻轉" onclick="window.app.flipBlokusPiece()">⇄</button>
+            <button class="btn-primary blokus-pass-button" aria-label="跳過這回合" onclick="window.app.passBlokusTurn()">⏭</button>
         `;
 
         hudEl.appendChild(previewContainer);
@@ -1298,24 +1312,67 @@ class PocketApp {
                 const color = engine.board[y][x];
                 const isStart = isFirst && startPoints.some(pt => pt.x === x && pt.y === y);
 
-                cell.className = `blokus-cell ${color || ''} ${isStart ? 'start-point' : ''}`;
+                cell.className = `blokus-cell ${color || ''} ${isStart ? `start-point start-${engine.turn}` : ''}`;
+                cell.dataset.boardY = y;
+                cell.dataset.boardX = x;
+
+                // A placed polyomino gets a real visual layer, instead of
+                // relying only on the cell background.  Some mobile WebViews
+                // keep the old background paint after a grid is rebuilt.
+                if (color) {
+                    const colors = {
+                        blue: ['#0284c7', '#7dd3fc'],
+                        orange: ['#ea580c', '#fdba74'],
+                        yellow: ['#ca8a04', '#fef08a'],
+                        red: ['#dc2626', '#fca5a5'],
+                        green: ['#16a34a', '#86efac']
+                    };
+                    const placedBlock = document.createElement('span');
+                    placedBlock.className = 'blokus-placed-block';
+                    placedBlock.style.setProperty('--blokus-piece-fill', colors[color]?.[0] || '#0284c7');
+                    placedBlock.style.setProperty('--blokus-piece-edge', colors[color]?.[1] || '#7dd3fc');
+                    cell.appendChild(placedBlock);
+                }
+
+                if (pendingIsCurrentPiece) {
+                    for (const [dy, dx] of activeShape) {
+                        if (y === pending.originY + dy && x === pending.originX + dx) {
+                            cell.classList.add(pendingIsValid ? 'ghost-valid' : 'ghost-invalid');
+                            if (y === pending.originY && x === pending.originX) cell.classList.add('placement-anchor');
+                        }
+                    }
+                }
 
                 cell.addEventListener('mouseenter', () => highlightGhost(y, x, true));
                 cell.addEventListener('mouseleave', () => highlightGhost(y, x, false));
 
                 cell.addEventListener('click', () => {
                     const isValid = engine.isValidPlacement(engine.turn, activeShape, y, x);
-                    if (!isValid) {
-                        if (isFirst) this.showToast('⚠️ 第一步必須覆蓋發光的起始點！');
-                        else this.showToast('⚠️ 方塊必須與同色「角對角」相連，且嚴禁「邊挨邊」！');
-                    }
-                    onCellClick(x, y, { originY: y, originX: x });
+                    this.blokusPendingPlacement = { originY: y, originX: x, pieceId: this.selectedBlokusPieceId };
+                    if (!isValid && isFirst) this.showToast('⭐ 第一步要蓋住同色星星格');
+                    else if (!isValid) this.showToast('◇ 只能和自己的方塊角碰角');
+                    this.renderCurrentBoard();
                 });
 
                 gridEl.appendChild(cell);
             }
         }
         this.dom.boardEl.appendChild(gridEl);
+
+        const placementControls = document.createElement('div');
+        placementControls.className = `blokus-placement-controls ${pendingIsCurrentPiece ? (pendingIsValid ? 'is-valid' : 'is-invalid') : ''}`;
+        if (pendingIsCurrentPiece) {
+            placementControls.innerHTML = `
+                <span class="blokus-placement-status">${pendingIsValid ? '✓ 可以放這裡' : '✕ 這裡不能放'}</span>
+                <div class="blokus-placement-actions">
+                    <button class="blokus-cancel-button" onclick="window.app.cancelBlokusPlacement()">✕</button>
+                    <button class="blokus-confirm-button" ${pendingIsValid ? '' : 'disabled'} onclick="window.app.confirmBlokusPlacement()">✓ 放這裡</button>
+                </div>
+            `;
+        } else {
+            placementControls.innerHTML = `<span class="blokus-placement-hint">👆 點棋盤或拖曳方塊，先看預覽再確認</span>`;
+        }
+        this.dom.boardEl.appendChild(placementControls);
 
         // 3. Category Filter Tabs
         const catTabsEl = document.createElement('div');
@@ -1368,12 +1425,85 @@ class PocketApp {
             pieceCard.appendChild(this.renderMiniPolyominoSVG(shape, engine.turn, 9));
 
             pieceCard.addEventListener('click', () => {
+                if (pieceCard.dataset.dragged === 'true') {
+                    pieceCard.dataset.dragged = 'false';
+                    return;
+                }
                 if (p.used) return;
                 this.selectedBlokusPieceId = p.id;
                 this.currentBlokusShape = BlokusEngine.normalize(p.coords);
+                this.blokusPendingPlacement = null;
                 window.sounds.playPing();
                 this.showToast(`🎯 已選擇 ${p.size} 格方塊 (ID: ${p.id + 1})`, 1000);
                 this.renderCurrentBoard();
+            });
+
+            // Touch drag: release only chooses a preview position.  It never
+            // places a block by itself, which is vital on a small phone board.
+            pieceCard.addEventListener('pointerdown', (downEvent) => {
+                if (p.used || downEvent.button > 0) return;
+                const startX = downEvent.clientX;
+                const startY = downEvent.clientY;
+                const dragShape = p.id === this.selectedBlokusPieceId
+                    ? activeShape
+                    : BlokusEngine.normalize(p.coords);
+                let dragging = false;
+                let ghost = null;
+
+                const getBoardCellAt = (clientX, clientY) => {
+                    const element = document.elementFromPoint(clientX, clientY);
+                    return element ? element.closest('.blokus-cell') : null;
+                };
+                const highlightDraggedPiece = (originY, originX, show) => {
+                    document.querySelectorAll('.blokus-cell.ghost-valid, .blokus-cell.ghost-invalid').forEach(c => {
+                        c.classList.remove('ghost-valid', 'ghost-invalid');
+                    });
+                    if (!show) return;
+                    const valid = engine.isValidPlacement(engine.turn, dragShape, originY, originX);
+                    for (const [dy, dx] of dragShape) {
+                        const targetY = originY + dy;
+                        const targetX = originX + dx;
+                        if (targetY < 0 || targetY >= engine.size || targetX < 0 || targetX >= engine.size) continue;
+                        gridEl.children[targetY * engine.size + targetX]?.classList.add(valid ? 'ghost-valid' : 'ghost-invalid');
+                    }
+                };
+                const moveGhost = (moveEvent) => {
+                    if (Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY) > 8 && !dragging) {
+                        dragging = true;
+                        pieceCard.dataset.dragged = 'true';
+                        ghost = document.createElement('div');
+                        ghost.className = 'blokus-drag-ghost';
+                        ghost.appendChild(this.renderMiniPolyominoSVG(dragShape, engine.turn, 13));
+                        document.body.appendChild(ghost);
+                        pieceCard.setPointerCapture?.(downEvent.pointerId);
+                    }
+                    if (!dragging) return;
+                    moveEvent.preventDefault();
+                    ghost.style.left = `${moveEvent.clientX + 14}px`;
+                    ghost.style.top = `${moveEvent.clientY - 26}px`;
+                    const target = getBoardCellAt(moveEvent.clientX, moveEvent.clientY);
+                    if (target) highlightDraggedPiece(Number(target.dataset.boardY), Number(target.dataset.boardX), true);
+                    else highlightDraggedPiece(0, 0, false);
+                };
+                const dropPiece = (upEvent) => {
+                    window.removeEventListener('pointermove', moveGhost);
+                    window.removeEventListener('pointerup', dropPiece);
+                    if (ghost) ghost.remove();
+                    highlightDraggedPiece(0, 0, false);
+                    if (!dragging) return;
+                    const target = getBoardCellAt(upEvent.clientX, upEvent.clientY);
+                    if (!target) return;
+                    this.selectedBlokusPieceId = p.id;
+                    this.currentBlokusShape = BlokusEngine.normalize(p.coords);
+                    this.blokusPendingPlacement = {
+                        originY: Number(target.dataset.boardY),
+                        originX: Number(target.dataset.boardX),
+                        pieceId: p.id
+                    };
+                    this.renderCurrentBoard();
+                };
+                window.addEventListener('pointermove', moveGhost, { passive: false });
+                window.addEventListener('pointerup', dropPiece, { once: true });
             });
 
             gridContainer.appendChild(pieceCard);
@@ -1416,6 +1546,7 @@ class PocketApp {
         }
         if (this.currentBlokusShape) {
             this.currentBlokusShape = BlokusEngine.rotate(this.currentBlokusShape);
+            this.blokusPendingPlacement = null;
             window.sounds.playPing();
             this.renderCurrentBoard();
         }
@@ -1428,6 +1559,7 @@ class PocketApp {
         }
         if (this.currentBlokusShape) {
             this.currentBlokusShape = BlokusEngine.flip(this.currentBlokusShape);
+            this.blokusPendingPlacement = null;
             window.sounds.playPing();
             this.renderCurrentBoard();
         }
@@ -1436,6 +1568,7 @@ class PocketApp {
     passBlokusTurn() {
         if (this.selectedGame !== 'blokus') return;
         const engine = this.activeEngine;
+        this.blokusPendingPlacement = null;
         engine.passTurn();
         this.selectNextUnusedBlokusPiece();
         this.renderLocalBoard();
@@ -1454,6 +1587,57 @@ class PocketApp {
             this.selectedBlokusPieceId = unused[0].id;
             this.currentBlokusShape = BlokusEngine.normalize(unused[0].coords);
         }
+    }
+
+    cancelBlokusPlacement() {
+        this.blokusPendingPlacement = null;
+        this.renderCurrentBoard();
+    }
+
+    confirmBlokusPlacement() {
+        if (this.selectedGame !== 'blokus' || !this.blokusPendingPlacement) return;
+        if (this.currentMode === 'online' && this.myRole === 'spectator') return;
+
+        const engine = this.activeEngine;
+        const { originY, originX, pieceId } = this.blokusPendingPlacement;
+        const piece = engine.playerPieces[engine.turn]?.find(p => p.id === pieceId);
+        const shape = this.currentBlokusShape || piece?.coords;
+        if (!piece || piece.used || !shape || !engine.isValidPlacement(engine.turn, shape, originY, originX)) {
+            this.showToast('✕ 這個位置不能放');
+            return;
+        }
+
+        if (this.currentMode === 'online') {
+            const placed = engine.placePiece(pieceId, shape, originY, originX);
+            if (!placed) return;
+            this.blokusPendingPlacement = null;
+            this.selectNextUnusedBlokusPiece();
+            // Do not wait for the WebSocket round-trip before drawing the
+            // placed block.  Otherwise the preview vanishes and the board can
+            // look empty on a slow hotspot connection.
+            this.roomState = {
+                ...(this.roomState || {}),
+                playerCount: engine.playerCount,
+                size: engine.size,
+                board: engine.board,
+                playerPieces: engine.playerPieces,
+                turn: engine.turn,
+                winner: engine.winner,
+                scores: engine.scores
+            };
+            this.renderOnlineBoard();
+            this.sendOnlineMovePayload({ pieceId, shape, originY, originX });
+            return;
+        }
+
+        const placed = engine.placePiece(pieceId, shape, originY, originX);
+        if (!placed) return;
+        window.sounds.playSnap();
+        this.blokusPendingPlacement = null;
+        this.selectNextUnusedBlokusPiece();
+        this.renderLocalBoard();
+        if (engine.winner) return this.handleLocalGameOver(engine.winner);
+        this.triggerAITurnIfNeeded();
     }
 
     updatePlayerStatus() {

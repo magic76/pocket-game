@@ -1161,6 +1161,19 @@ header {
     gap: 10px;
 }
 
+.blokus-icon-button,
+.blokus-pass-button {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 !important;
+    font-size: 1.35rem !important;
+    line-height: 1;
+}
+
+.blokus-pass-button {
+    background: #dc2626 !important;
+}
+
 .blokus-current-preview {
     display: flex;
     align-items: center;
@@ -1177,6 +1190,13 @@ header {
     align-items: center;
     justify-content: center;
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+}
+
+.blokus-rule-hint {
+    margin-top: 2px;
+    color: #fef08a;
+    font-size: 0.68rem;
+    font-weight: 800;
 }
 
 .blokus-board {
@@ -1200,9 +1220,26 @@ header {
 }
 
 .blokus-cell.start-point {
-    background: rgba(56, 189, 248, 0.18);
-    border: 1px dashed rgba(56, 189, 248, 0.6);
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px dashed currentColor;
+    display: grid;
+    place-items: center;
+    z-index: 1;
 }
+
+.blokus-cell.start-point::after {
+    content: '★';
+    color: currentColor;
+    font-size: clamp(10px, 2.6vw, 18px);
+    line-height: 1;
+    filter: drop-shadow(0 0 4px currentColor);
+}
+
+.blokus-cell.start-blue { color: #38bdf8; }
+.blokus-cell.start-orange { color: #fb923c; }
+.blokus-cell.start-yellow { color: #fde047; }
+.blokus-cell.start-red { color: #f87171; }
+.blokus-cell.start-green { color: #4ade80; }
 
 .blokus-cell.blue {
     background: #0284c7;
@@ -1229,6 +1266,17 @@ header {
     box-shadow: inset 0 0 0 1px #f87171;
 }
 
+.blokus-placed-block {
+    position: absolute;
+    inset: 0;
+    display: block;
+    pointer-events: none;
+    background: var(--blokus-piece-fill);
+    border: 1px solid var(--blokus-piece-edge);
+    border-radius: 2px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -2px 0 rgba(0,0,0,0.2), 0 0 5px rgba(255,255,255,0.16);
+}
+
 .blokus-cell.ghost-valid {
     background: rgba(16, 185, 129, 0.7) !important;
     box-shadow: inset 0 0 0 1px #34d399;
@@ -1237,6 +1285,83 @@ header {
 .blokus-cell.ghost-invalid {
     background: rgba(239, 68, 68, 0.6) !important;
     box-shadow: inset 0 0 0 1px #f87171;
+}
+
+.blokus-cell.placement-anchor {
+    outline: 2px solid #fff;
+    outline-offset: -2px;
+    z-index: 2;
+}
+
+.blokus-placement-controls {
+    min-height: 50px;
+    padding: 6px 8px;
+    background: #172235;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.blokus-placement-controls.is-valid { border-color: #34d399; }
+.blokus-placement-controls.is-invalid { border-color: #f87171; }
+
+.blokus-placement-status,
+.blokus-placement-hint {
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: #cbd5e1;
+}
+
+.blokus-placement-controls.is-valid .blokus-placement-status { color: #6ee7b7; }
+.blokus-placement-controls.is-invalid .blokus-placement-status { color: #fca5a5; }
+
+.blokus-placement-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.blokus-cancel-button,
+.blokus-confirm-button {
+    min-height: 40px;
+    border: 0;
+    border-radius: 9px;
+    font: inherit;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+.blokus-cancel-button {
+    min-width: 40px;
+    color: #fecaca;
+    background: #7f1d1d;
+    font-size: 1rem;
+}
+
+.blokus-confirm-button {
+    padding: 0 12px;
+    color: #052e16;
+    background: #6ee7b7;
+}
+
+.blokus-confirm-button:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.blokus-drag-ghost {
+    position: fixed;
+    z-index: 9999;
+    pointer-events: none;
+    padding: 5px;
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.88);
+    border: 2px solid #7dd3fc;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+    transform: translateY(-50%);
 }
 
 /* Category Filter Tabs */
@@ -1292,6 +1417,7 @@ header {
     transition: all 0.15s;
     min-height: 52px;
     position: relative;
+    touch-action: none;
 }
 
 .blokus-piece-card:hover {
@@ -1307,17 +1433,25 @@ header {
 }
 
 .blokus-piece-card.used {
-    opacity: 0.22;
+    opacity: 0.58;
     pointer-events: none;
     filter: grayscale(1);
     background: #090d16;
+    border-color: #64748b;
 }
 
 .blokus-piece-card .used-mark {
     position: absolute;
-    top: 2px;
-    right: 4px;
-    font-size: 0.65rem;
+    top: 4px;
+    right: 6px;
+    width: 20px;
+    height: 20px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: #14532d;
+    border: 1px solid #4ade80;
+    font-size: 0.78rem;
     font-weight: 900;
-    color: #94a3b8;
+    color: #dcfce7;
 }
