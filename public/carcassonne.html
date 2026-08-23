@@ -635,8 +635,8 @@
 
     <div id="player-scoreboard" class="header-scoreboard-row"></div>
     <div class="header-game-actions">
-        <button class="restart-game-button" onclick="restartCarcassonneGame()">🔄 重新開局</button>
-        <button class="leave-game-button" onclick="leaveToLobby()">🚪 返回大廳</button>
+        <button class="restart-game-button" onclick="confirmCarcassonneAction('restart')">🔄 重新開局</button>
+        <button class="leave-game-button" onclick="confirmCarcassonneAction('leave')">🚪 返回大廳</button>
     </div>
 </header>
 
@@ -692,6 +692,17 @@
         </p>
         <div id="gallery-grid" class="gallery-grid">
             <!-- 24 tiles injected here -->
+        </div>
+    </div>
+</div>
+
+<div id="carcassonne-action-confirm" class="modal hidden" onclick="if(event.target === this) cancelCarcassonneAction();">
+    <div class="modal-card">
+        <h2 id="carcassonne-confirm-title" style="font-size:1.18rem; color:#fde68a;">確認操作</h2>
+        <p id="carcassonne-confirm-desc" style="margin:8px 0 16px; color:var(--text-muted); font-size:.86rem;"></p>
+        <div style="display:flex; gap:8px;">
+            <button style="flex:1; min-height:44px; justify-content:center;" onclick="cancelCarcassonneAction()">取消</button>
+            <button id="carcassonne-confirm-button" class="primary" style="flex:1; min-height:44px; justify-content:center;" onclick="executeCarcassonneAction()">確認</button>
         </div>
     </div>
 </div>
@@ -850,6 +861,15 @@
         'X': { name: '水井十字路口', edges: ['R','R','R','R'], roadType: 'crossroad' }
     };
 
+    // Meadow regions are explicit so a farmer belongs to a connected field
+    // rather than merely to the whole tile. Edge order is N/E/S/W.
+    const FIELD_GROUPS = {
+        A: [[0, 1, 3]], B: [[0, 1, 2, 3]], C: [], D: [[3]], E: [[1, 2, 3]],
+        F: [[1], [3]], G: [[1], [3]], H: [[2, 3]], I: [[2, 3]], J: [[2]],
+        K: [[1]], L: [], M: [[2, 3]], N: [[2, 3]], O: [], P: [[2]], Q: [[2]],
+        R: [], S: [], T: [], U: [[1], [3]], V: [[0, 1]], W: [[0]], X: []
+    };
+
     const DIRECTIONS = [
         { dx: 0, dy: -1, opposite: 2 },
         { dx: 1, dy: 0, opposite: 3 },
@@ -883,7 +903,7 @@
         else if (def.roadType === 't-junction') roadGroups = [[1], [2], [3]];
         else if (def.roadType === 'crossroad') roadGroups = [[0], [1], [2], [3]];
 
-        return { city: cityGroups, road: roadGroups };
+        return { city: cityGroups, road: roadGroups, field: FIELD_GROUPS[typeKey] || [] };
     }
 
     function featureGroupAt(data, kind, edge) {
@@ -899,7 +919,7 @@
         const vectors = [[0, -1], [1, 0], [0, 1], [-1, 0]];
         const vector = rotated.reduce((sum, edge) => [sum[0] + vectors[edge][0], sum[1] + vectors[edge][1]], [0, 0]);
         const magnitude = Math.hypot(vector[0], vector[1]) || 1;
-        const distance = kind === 'city' ? 22 : 12;
+        const distance = kind === 'city' ? 22 : kind === 'field' ? 32 : 12;
         return { x: 50 + (vector[0] / magnitude) * distance, y: 50 + (vector[1] / magnitude) * distance };
     }
 
@@ -1253,6 +1273,14 @@
     let onlineSocket = null;
     let onlineRoomState = null;
     let myRole = gameMode === 'online' ? 'spectator' : 'local';
+    let onlineResumeToken = gameParams.get('resumeToken') || null;
+    let onlineStateVersion = 0;
+    let onlineSyncPending = false;
+    let onlineReconnectTimer = null;
+    let onlineReconnectAttempts = 0;
+    let onlineShouldReconnect = true;
+    let onlineIntentionalLeave = false;
+    let pendingCarcassonneAction = null;
     let playerNames = {};
     const gridMap = new Map();
     let deck = [];
@@ -1261,6 +1289,41 @@
     let scores = { red: 0, blue: 0, green: 0, yellow: 0 };
     let meeplesRemaining = { red: 7, blue: 7, green: 7, yellow: 7 };
     let remainingDeckCount = 0;
+    let gameResult = null;
+
+    function carcassonneSessionKey() {
+        return onlineRoomId ? `pocket_room_session_${onlineRoomId}` : null;
+    }
+
+    function loadCarcassonneSession() {
+        if (!onlineRoomId) return null;
+        try {
+            const raw = localStorage.getItem(carcassonneSessionKey());
+            return raw ? JSON.parse(raw) : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function rememberCarcassonneSession(token, role) {
+        if (!onlineRoomId || !token) return;
+        onlineResumeToken = token;
+        try {
+            localStorage.setItem(carcassonneSessionKey(), JSON.stringify({
+                resumeToken: token,
+                role,
+                gameType: 'carcassonne',
+                playerName: gameParams.get('name') || '特勤隊員'
+            }));
+        } catch (e) {}
+    }
+
+    function forgetCarcassonneSession() {
+        if (!onlineRoomId) return;
+        try { localStorage.removeItem(carcassonneSessionKey()); } catch (e) {}
+    }
+
+    if (!onlineResumeToken) onlineResumeToken = loadCarcassonneSession()?.resumeToken || null;
 
     // Strict turn phases: draw/preview → place tile → optional meeple → resolve.
     let turnPhase = 'PLACE_TILE';
@@ -1392,7 +1455,7 @@
     }
 
     function isMyTurn() {
-        return !isOnlineGame() || (onlineRoomState?.status === 'playing' && ROLE_TO_PLAYER[myRole] === activePlayer);
+        return !isOnlineGame() || (!onlineSyncPending && onlineRoomState?.status === 'playing' && ROLE_TO_PLAYER[myRole] === activePlayer);
     }
 
     function getActivePlayers() {
@@ -1406,7 +1469,7 @@
     function getSerializableState() {
         return {
             grid: [...gridMap.entries()], deck, currentTile, activePlayer, scores, meeplesRemaining,
-            remainingDeckCount, turnPhase, justPlacedCoords, playerCount, playerNames
+            remainingDeckCount, turnPhase, justPlacedCoords, playerCount, playerNames, gameResult
         };
     }
 
@@ -1424,11 +1487,19 @@
         justPlacedCoords = state.justPlacedCoords || null;
         playerCount = Math.max(2, Math.min(4, state.playerCount || playerCount));
         playerNames = state.playerNames || playerNames;
+        gameResult = state.gameResult || null;
     }
 
     function syncOnlineState(actorPlayer, init = false) {
         if (!isOnlineGame() || onlineSocket?.readyState !== WebSocket.OPEN) return;
-        onlineSocket.send(JSON.stringify({ type: init ? 'carcassonne_init' : 'carcassonne_sync', actorPlayer, state: getSerializableState() }));
+        if (!init && onlineSyncPending) return;
+        onlineSyncPending = true;
+        onlineSocket.send(JSON.stringify({
+            type: init ? 'carcassonne_init' : 'carcassonne_sync',
+            actorPlayer,
+            baseVersion: onlineStateVersion,
+            state: getSerializableState()
+        }));
     }
 
     function updateOnlinePlayers(roomState) {
@@ -1440,39 +1511,94 @@
         });
     }
 
+    function scheduleCarcassonneReconnect() {
+        if (onlineReconnectTimer || !onlineShouldReconnect || !onlineRoomId) return;
+        if (!onlineResumeToken) {
+            showToast('⚠️ 找不到房間恢復憑證');
+            return;
+        }
+        const delay = Math.min(1000 * (2 ** onlineReconnectAttempts), 8000);
+        onlineReconnectAttempts++;
+        onlineReconnectTimer = setTimeout(() => {
+            onlineReconnectTimer = null;
+            if (onlineShouldReconnect) connectOnlineGame();
+        }, delay);
+    }
+
     function connectOnlineGame() {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        onlineSocket = new WebSocket(`${protocol}//${window.location.host}`);
-        onlineSocket.addEventListener('open', () => {
-            onlineSocket.send(JSON.stringify({ type: 'join_room', roomId: onlineRoomId, name: gameParams.get('name') || '特勤隊員', rejoinRole: gameParams.get('rejoinRole') || undefined }));
+        const socket = new WebSocket(`${protocol}//${window.location.host}`);
+        onlineSocket = socket;
+        onlineIntentionalLeave = false;
+        socket.addEventListener('open', () => {
+            if (onlineSocket !== socket) return;
+            socket.send(JSON.stringify({
+                type: 'join_room',
+                roomId: onlineRoomId,
+                name: gameParams.get('name') || '特勤隊員',
+                resumeToken: onlineResumeToken || undefined
+            }));
         });
-        onlineSocket.addEventListener('message', event => {
+        socket.addEventListener('message', event => {
             const message = JSON.parse(event.data);
             const roomState = message.roomState;
-            if (roomState?.gameType === 'carcassonne') updateOnlinePlayers(roomState);
+            if (roomState?.gameType === 'carcassonne') {
+                updateOnlinePlayers(roomState);
+                onlineStateVersion = roomState.carcassonneVersion || 0;
+            }
             if (message.type === 'room_joined') {
                 myRole = message.role;
+                if (message.resumeToken) rememberCarcassonneSession(message.resumeToken, myRole);
+                onlineShouldReconnect = myRole !== 'spectator';
+                onlineReconnectAttempts = 0;
                 if (roomState.carcassonneState) loadSerializableState(roomState.carcassonneState);
                 else if (myRole === 'black') {
                     resetGame(true);
                     syncOnlineState('red', true);
                 }
                 renderWorld();
+                showToast('✅ 已連回房間');
             } else if (message.type === 'carcassonne_state' || message.type === 'state_sync') {
+                onlineSyncPending = false;
                 if (roomState?.carcassonneState) loadSerializableState(roomState.carcassonneState);
                 renderWorld();
             } else if (message.type === 'reaction') {
                 showCarcassonneReaction(message.emoji, ROLE_TO_PLAYER[message.role] || activePlayer);
-            } else if (message.type === 'player_joined' || message.type === 'player_left') {
+            } else if (message.type === 'player_joined' || message.type === 'player_left' || message.type === 'player_reconnected') {
                 renderWorld();
-            } else if (message.type === 'game_restarted' && myRole === 'black') {
-                resetGame(true);
-                syncOnlineState('red', true);
+            } else if (message.type === 'restart_requested') {
+                if (roomState.restartVotes?.includes(myRole)) {
+                    showToast(`🔄 已送出重開請求（${roomState.restartVotes.length}/${message.neededVotes}）`);
+                } else {
+                    pendingCarcassonneAction = 'restart';
+                    document.getElementById('carcassonne-confirm-title').textContent = `${message.by} 想重新開局`;
+                    document.getElementById('carcassonne-confirm-desc').textContent = '同意後，所有玩家都確認時才會重新開始。';
+                    document.getElementById('carcassonne-confirm-button').textContent = '同意重開';
+                    document.getElementById('carcassonne-action-confirm').classList.remove('hidden');
+                }
+            } else if (message.type === 'restart_vote_expired') {
+                showToast('⌛ 重新開局請求已逾時');
+            } else if (message.type === 'game_restarted') {
+                onlineSyncPending = false;
+                if (myRole === 'black') {
+                    resetGame(true);
+                    syncOnlineState('red', true);
+                }
+                renderWorld();
             } else if (message.type === 'error') {
+                onlineSyncPending = false;
                 showToast(`❌ ${message.message}`);
+                if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'sync_request' }));
             }
         });
-        onlineSocket.addEventListener('close', () => showToast('⚠️ 多人連線已中斷'));
+        socket.addEventListener('close', () => {
+            if (onlineSocket === socket) onlineSocket = null;
+            onlineSyncPending = false;
+            if (!onlineIntentionalLeave && onlineShouldReconnect) {
+                showToast('⚠️ 多人連線中斷，正在恢復…');
+                scheduleCarcassonneReconnect();
+            }
+        });
     }
 
     window.toggleReactionPanel = function() {
@@ -1485,6 +1611,30 @@
         } else {
             resetGame();
         }
+    };
+
+    window.confirmCarcassonneAction = function(action) {
+        if (!['restart', 'leave'].includes(action)) return;
+        pendingCarcassonneAction = action;
+        const restart = action === 'restart';
+        document.getElementById('carcassonne-confirm-title').textContent = restart ? '重新開局？' : '返回大廳？';
+        document.getElementById('carcassonne-confirm-desc').textContent = restart
+            ? (isOnlineGame() ? '會請其他玩家確認；所有玩家同意才會重新開始。' : '目前棋局會重新開始。')
+            : '你會離開目前的遊戲房間。';
+        document.getElementById('carcassonne-confirm-button').textContent = restart ? '確認重新開始' : '確認返回';
+        document.getElementById('carcassonne-action-confirm').classList.remove('hidden');
+    };
+
+    window.cancelCarcassonneAction = function() {
+        pendingCarcassonneAction = null;
+        document.getElementById('carcassonne-action-confirm').classList.add('hidden');
+    };
+
+    window.executeCarcassonneAction = function() {
+        const action = pendingCarcassonneAction;
+        window.cancelCarcassonneAction();
+        if (action === 'restart') window.restartCarcassonneGame();
+        if (action === 'leave') leaveToLobby();
     };
 
     window.sendCarcassonneReaction = function(emoji) {
@@ -1604,7 +1754,7 @@
             const tile = gridMap.get(`${gx},${gy}`);
             const choices = tile ? getMeepleChoices(tile).filter(choice => !choice.blocked) : [];
             if (tile) {
-                const featureIcons = { city: '🏰', road: '🛣️', monastery: '⛪' };
+                const featureIcons = { city: '🏰', road: '🛣️', field: '🌾', monastery: '⛪' };
                 const directionIcons = ['↑', '→', '↓', '←'];
                 const tray = document.createElement('div');
                 tray.className = 'meeple-choice-tray';
@@ -1693,7 +1843,7 @@
 
     function getMeepleChoices(tile) {
         const choices = [];
-        for (const kind of ['city', 'road']) {
+        for (const kind of ['city', 'road', 'field']) {
             const groups = getFeatureGroups(tile.typeKey)[kind];
             groups.forEach((edges, group) => {
                 const component = getFeatureComponent(justPlacedCoords.gx, justPlacedCoords.gy, kind, group);
@@ -1708,7 +1858,8 @@
                     })
                     : [{ anchor: featureAnchor(tile, kind, group), edge: null }];
                 anchors.forEach(({ anchor, edge }) => {
-                    choices.push({ kind, group, role: kind === 'city' ? 'knight' : 'robber', anchor, edge, blocked: featureHasMeeple(component, kind) });
+                    const role = kind === 'city' ? 'knight' : kind === 'road' ? 'robber' : 'farmer';
+                    choices.push({ kind, group, role, anchor, edge, blocked: featureHasMeeple(component, kind) });
                 });
             });
         }
@@ -1728,7 +1879,7 @@
                 showToast('🔒');
                 return;
             }
-            const role = kind === 'city' ? 'knight' : kind === 'road' ? 'robber' : 'monk';
+            const role = kind === 'city' ? 'knight' : kind === 'road' ? 'robber' : kind === 'field' ? 'farmer' : 'monk';
             tile.meeple = { color: activePlayer, role, kind, group, offsetX: ox, offsetY: oy };
             meeplesRemaining[activePlayer]--;
             audio.playMeeple();
@@ -1751,11 +1902,24 @@
         turnPhase = hasNextTile ? 'PLACE_TILE' : 'GAME_OVER';
         justPlacedCoords = null;
 
+        if (!hasNextTile) {
+            const finalEvents = scoreUnfinishedFeatures();
+            scoreEvents.push(...finalEvents);
+            const activeScores = getActivePlayers().map(color => scores[color]);
+            const bestScore = Math.max(...activeScores);
+            gameResult = {
+                winners: getActivePlayers().filter(color => scores[color] === bestScore),
+                score: bestScore
+            };
+        }
+
         renderWorld();
         scoreEvents.forEach(event => triggerScorePopup(event.gx, event.gy, event.text));
         if (scoreEvents.length) audio.playScore();
         syncOnlineState(actorPlayer);
-        showToast(hasNextTile ? `▶ 輪到【${activePlayer === 'red' ? '紅方' : '藍方'}領主】行動！` : '🏁 牌堆已用盡，本局結束！');
+        showToast(hasNextTile
+            ? `▶ 輪到【${playerDisplayName(activePlayer)}】行動！`
+            : `🏆 ${gameResult.winners.map(playerDisplayName).join('、')} 獲勝！`);
     }
 
     function checkCompletedFeatures() {
@@ -1816,6 +1980,99 @@
                     events.push({ gx: mx, gy: my, text: '+9 ⛪ 修道院完成' });
                 }
             }
+        }
+        return events;
+    }
+
+    // At the end of the deck, unfinished cities score one point per tile and
+    // shield, roads score one point per tile, and monasteries score their
+    // placed neighbours (including themselves). Meeples return to the owner.
+    function scoreUnfinishedFeatures() {
+        const checked = new Set();
+        const events = [];
+        for (const [key, data] of gridMap) {
+            const [gx, gy] = key.split(',').map(Number);
+            for (const kind of ['city', 'road']) {
+                const groups = getFeatureGroups(data.typeKey)[kind];
+                groups.forEach((_, group) => {
+                    const component = getFeatureComponent(gx, gy, kind, group);
+                    if (checked.has(component.id)) return;
+                    checked.add(component.id);
+                    if (!featureHasMeeple(component, kind)) return;
+
+                    const owners = {};
+                    component.nodes.forEach(node => {
+                        const meeple = node.data.meeple;
+                        if (meeple?.kind === kind) owners[meeple.color] = (owners[meeple.color] || 0) + 1;
+                    });
+                    const majority = Math.max(...Object.values(owners));
+                    const winners = Object.entries(owners).filter(([, count]) => count === majority).map(([color]) => color);
+                    const shields = kind === 'city' ? component.nodes.filter(node => TILE_DEFS[node.data.typeKey].shield).length : 0;
+                    const points = kind === 'city' ? component.nodes.length + shields : component.nodes.length;
+                    winners.forEach(color => { scores[color] += points; });
+                    component.nodes.forEach(node => {
+                        if (node.data.meeple?.kind === kind) {
+                            meeplesRemaining[node.data.meeple.color]++;
+                            node.data.meeple = null;
+                        }
+                    });
+                    events.push({ gx, gy, text: `+${points} ${kind === 'city' ? '🏰 城市結算' : '🛣️ 道路結算'}` });
+                });
+            }
+        }
+
+        // Farmers stay on fields until the end. A completed city connected to
+        // that field is worth three points; tied farmers all score.
+        const checkedFields = new Set();
+        for (const [key, data] of gridMap) {
+            const [gx, gy] = key.split(',').map(Number);
+            const groups = getFeatureGroups(data.typeKey).field;
+            groups.forEach((_, group) => {
+                const field = getFeatureComponent(gx, gy, 'field', group);
+                if (checkedFields.has(field.id)) return;
+                checkedFields.add(field.id);
+                if (!featureHasMeeple(field, 'field')) return;
+
+                const completedCities = new Set();
+                field.nodes.forEach(node => {
+                    getFeatureGroups(node.data.typeKey).city.forEach((__, cityGroup) => {
+                        const city = getFeatureComponent(node.gx, node.gy, 'city', cityGroup);
+                        if (!city.isOpen) completedCities.add(city.id);
+                    });
+                });
+                const owners = {};
+                field.nodes.forEach(node => {
+                    const meeple = node.data.meeple;
+                    if (meeple?.kind === 'field') owners[meeple.color] = (owners[meeple.color] || 0) + 1;
+                });
+                const majority = Math.max(...Object.values(owners));
+                const winners = Object.entries(owners).filter(([, count]) => count === majority).map(([color]) => color);
+                const points = completedCities.size * 3;
+                winners.forEach(color => { scores[color] += points; });
+                field.nodes.forEach(node => {
+                    if (node.data.meeple?.kind === 'field') {
+                        meeplesRemaining[node.data.meeple.color]++;
+                        node.data.meeple = null;
+                    }
+                });
+                events.push({ gx, gy, text: `+${points} 🌾 草地結算` });
+            });
+        }
+
+        for (const [key, data] of gridMap) {
+            if (!TILE_DEFS[data.typeKey].hasMonastery || data.meeple?.kind !== 'monastery') continue;
+            const [mx, my] = key.split(',').map(Number);
+            let points = 0;
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dy = -1; dy <= 1; dy++) {
+                    if (gridMap.has(`${mx + dx},${my + dy}`)) points++;
+                }
+            }
+            const scorer = data.meeple.color;
+            scores[scorer] += points;
+            meeplesRemaining[scorer]++;
+            data.meeple = null;
+            events.push({ gx: mx, gy: my, text: `+${points} ⛪ 修道院結算` });
         }
         return events;
     }
@@ -1899,7 +2156,7 @@
         const stepLabel = document.getElementById('turn-step-label');
         let stepText = turnPhase === 'PLACE_TILE' ? '放置地圖卡'
             : turnPhase === 'DEPLOY_MEEPLE' ? '放置米寶'
-            : turnPhase === 'GAME_OVER' ? '遊戲結束'
+            : turnPhase === 'GAME_OVER' ? (gameResult ? `🏆 ${gameResult.winners.map(playerDisplayName).join('、')} 獲勝` : '遊戲結束')
             : '計分中';
         if (isOnlineGame() && onlineRoomState?.status !== 'playing' && turnPhase !== 'GAME_OVER') stepText = '等待玩家';
         else if (isOnlineGame() && !isMyTurn() && turnPhase !== 'GAME_OVER') stepText = '等待對手';
@@ -1926,6 +2183,7 @@
         activePlayer = 'red';
         turnPhase = 'PLACE_TILE';
         justPlacedCoords = null;
+        gameResult = null;
 
         buildDeck();
         gridMap.set('0,0', { typeKey: 'J', rotation: 0, meeple: null });
@@ -1943,6 +2201,7 @@
         activePlayer = 'red';
         turnPhase = 'PLACE_TILE';
         justPlacedCoords = null;
+        gameResult = null;
 
         const sampleTiles = [
             { gx: 0, gy: 0, type: 'J', rot: 0, meeple: null },
@@ -1984,7 +2243,17 @@
     }
 
     function leaveToLobby() {
-        if (onlineSocket) onlineSocket.close();
+        onlineShouldReconnect = false;
+        onlineIntentionalLeave = true;
+        if (onlineReconnectTimer) clearTimeout(onlineReconnectTimer);
+        forgetCarcassonneSession();
+        if (onlineSocket?.readyState === WebSocket.OPEN) {
+            onlineSocket.send(JSON.stringify({ type: 'leave_room' }));
+            const socket = onlineSocket;
+            setTimeout(() => socket.close(), 30);
+        } else if (onlineSocket) {
+            onlineSocket.close();
+        }
         window.location.href = 'index.html';
     }
 

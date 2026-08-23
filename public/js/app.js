@@ -14,6 +14,11 @@ class PocketApp {
         this.roomId = null;
         this.myRole = null;
         this.roomState = null;
+        this.resumeToken = null;
+        this.shouldReconnect = false;
+        this.reconnectAttempts = 0;
+        this.reconnectTimer = null;
+        this.intentionalDisconnect = false;
 
         // Game engines; Carcassonne owns its dedicated page and turn engine.
         this.engines = {
@@ -39,6 +44,7 @@ class PocketApp {
         // A drop is always previewed before it is committed.  This prevents a
         // small mobile tap from immediately spending a polyomino.
         this.blokusPendingPlacement = null;
+        this.pendingGameAction = null;
 
         // Network Info
         this.serverInfo = null;
@@ -92,6 +98,10 @@ class PocketApp {
             winModal: document.getElementById('win-modal'),
             winTitle: document.getElementById('win-title'),
             winDesc: document.getElementById('win-desc'),
+            actionConfirmModal: document.getElementById('action-confirm-modal'),
+            actionConfirmTitle: document.getElementById('action-confirm-title'),
+            actionConfirmDesc: document.getElementById('action-confirm-desc'),
+            actionConfirmButton: document.getElementById('action-confirm-button'),
             toast: document.getElementById('toast'),
 
             // Lobby Game Cards
@@ -184,6 +194,68 @@ class PocketApp {
 
     get activeEngine() {
         return this.engines[this.selectedGame];
+    }
+
+    getRoomSessionKey(roomId = this.roomId) {
+        return roomId ? `pocket_room_session_${roomId}` : null;
+    }
+
+    saveRoomSession(roomId, resumeToken, role, gameType) {
+        if (!roomId || !resumeToken) return;
+        this.resumeToken = resumeToken;
+        try {
+            localStorage.setItem(this.getRoomSessionKey(roomId), JSON.stringify({
+                resumeToken,
+                role,
+                gameType,
+                playerName: this.playerName
+            }));
+        } catch (e) {
+            console.warn('Unable to save room session', e);
+        }
+    }
+
+    getRoomSession(roomId = this.roomId) {
+        if (!roomId) return null;
+        try {
+            const raw = localStorage.getItem(this.getRoomSessionKey(roomId));
+            return raw ? JSON.parse(raw) : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    clearRoomSession(roomId = this.roomId) {
+        if (!roomId) return;
+        try { localStorage.removeItem(this.getRoomSessionKey(roomId)); } catch (e) { /* storage can be unavailable in private tabs */ }
+        if (roomId === this.roomId) this.resumeToken = null;
+    }
+
+    configureEngineForRoom(roomState) {
+        if (!roomState) return;
+        const game = roomState.gameType || this.selectedGame;
+        if (game === 'checkers') {
+            const count = Number(roomState.playerCount) === 3 ? 3 : 2;
+            this.checkersPlayerCount = count;
+            if (!this.engines.checkers || this.engines.checkers.playerCount !== count || this.engines.checkers.players.length !== count) {
+                this.engines.checkers = new ChineseCheckersEngine(count);
+            }
+        }
+        if (game === 'blokus') {
+            const count = Number(roomState.playerCount) === 4 ? 4 : 2;
+            this.blokusPlayerCount = count;
+            if (!this.engines.blokus || this.engines.blokus.playerCount !== count || this.engines.blokus.players.length !== count) {
+                this.engines.blokus = new BlokusEngine(count);
+            }
+        }
+    }
+
+    applyOnlineRoomState(roomState) {
+        if (!roomState) return;
+        this.roomState = roomState;
+        this.selectedGame = roomState.gameType || this.selectedGame;
+        this.configureEngineForRoom(roomState);
+        if (this.selectedGame !== 'carcassonne' && this.activeEngine) this.activeEngine.loadState(roomState);
     }
 
     selectGame(game) {
@@ -302,27 +374,71 @@ class PocketApp {
 
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${protocol}//${window.location.host}`;
-        this.ws = new WebSocket(wsUrl);
+        const socket = new WebSocket(wsUrl);
+        this.ws = socket;
+        this.intentionalDisconnect = false;
 
-        this.ws.onopen = () => {
+        socket.onopen = () => {
+            if (this.ws !== socket) return;
+            this.reconnectAttempts = 0;
             if (onOpen) onOpen();
         };
 
-        this.ws.onmessage = (e) => {
+        socket.onmessage = (e) => {
             const data = JSON.parse(e.data);
             this.handleServerMessage(data);
         };
 
-        this.ws.onclose = () => {
-            this.showToast('⚠️ 與伺服器連線中斷');
+        socket.onclose = () => {
+            if (this.ws === socket) this.ws = null;
+            if (this.shouldReconnect && !this.intentionalDisconnect && this.roomId) {
+                this.showToast('⚠️ 連線中斷，正在恢復房間…');
+                this.scheduleReconnect();
+            } else if (!this.intentionalDisconnect) {
+                this.showToast('⚠️ 與伺服器連線中斷');
+            }
         };
 
-        this.ws.onerror = () => {
+        socket.onerror = () => {
             this.showToast('❌ 連線錯誤');
         };
     }
 
+    scheduleReconnect() {
+        if (this.reconnectTimer || !this.shouldReconnect || !this.roomId) return;
+        const session = this.getRoomSession(this.roomId);
+        if (!session?.resumeToken) {
+            this.showToast('⚠️ 找不到恢復憑證，請從大廳重新加入');
+            return;
+        }
+        const delay = Math.min(1000 * (2 ** this.reconnectAttempts), 8000);
+        this.reconnectAttempts++;
+        this.reconnectTimer = setTimeout(() => {
+            this.reconnectTimer = null;
+            if (!this.shouldReconnect || !this.roomId) return;
+            this.connectWS(() => {
+                if (this.ws?.readyState === WebSocket.OPEN) {
+                    this.ws.send(JSON.stringify({
+                        type: 'join_room',
+                        roomId: this.roomId,
+                        name: this.playerName,
+                        resumeToken: session.resumeToken
+                    }));
+                }
+            });
+        }, delay);
+    }
+
+    stopReconnect() {
+        this.shouldReconnect = false;
+        this.intentionalDisconnect = true;
+        if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+        this.reconnectTimer = null;
+        this.reconnectAttempts = 0;
+    }
+
     createOnlineRoom() {
+        this.stopReconnect();
         this.connectWS(() => {
             const pCount = this.selectedGame === 'checkers' ? this.checkersPlayerCount :
                           (this.selectedGame === 'blokus' ? this.blokusPlayerCount :
@@ -343,6 +459,7 @@ class PocketApp {
             return;
         }
 
+        this.stopReconnect();
         this.connectWS(() => {
             this.ws.send(JSON.stringify({
                 type: 'join_room',
@@ -358,43 +475,43 @@ class PocketApp {
         if (type === 'room_created') {
             this.roomId = data.roomId;
             this.myRole = data.role;
-            this.roomState = data.roomState;
-            this.selectedGame = data.roomState.gameType;
+            this.saveRoomSession(data.roomId, data.resumeToken, data.role, data.roomState.gameType);
+            this.shouldReconnect = true;
+            this.applyOnlineRoomState(data.roomState);
             if (this.selectedGame === 'carcassonne') {
                 this.openCarcassonneRoom(data.roomId, 'online', data.roomState.playerCount, data.role);
                 return;
             }
-            this.activeEngine.reset();
             this.enterGameView();
             this.showToast(`房間已建立！房號: ${this.roomId}`);
         }
 
         else if (type === 'room_joined') {
+            const isRejoin = this.roomId === data.roomId && !this.dom.viewGame.classList.contains('hidden');
             this.roomId = data.roomId;
             this.myRole = data.role;
-            this.roomState = data.roomState;
-            this.selectedGame = data.roomState.gameType;
+            this.saveRoomSession(data.roomId, data.resumeToken, data.role, data.roomState.gameType);
+            this.shouldReconnect = data.role !== 'spectator';
+            this.applyOnlineRoomState(data.roomState);
             if (this.selectedGame === 'carcassonne') {
                 this.openCarcassonneRoom(data.roomId, 'online', data.roomState.playerCount, data.role);
                 return;
             }
-            this.activeEngine.reset();
-            this.enterGameView();
+            if (!isRejoin) this.enterGameView();
             this.renderOnlineBoard();
-            this.showToast(`成功加入房間 ${this.roomId}`);
+            this.showToast(isRejoin ? '✅ 已恢復連線' : `成功加入房間 ${this.roomId}`);
             window.sounds.playPing();
         }
 
-        else if (type === 'player_joined') {
-            this.roomState = data.roomState;
-            this.showToast(`👋 ${data.name} 加入了房間`);
+        else if (type === 'player_joined' || type === 'player_reconnected') {
+            this.applyOnlineRoomState(data.roomState);
+            this.showToast(type === 'player_reconnected' ? `✅ ${data.name} 回到房間` : `👋 ${data.name} 加入了房間`);
             this.updatePlayerStatus();
             window.sounds.playPing();
         }
 
         else if (type === 'move_made') {
-            this.roomState = data.roomState;
-            this.activeEngine.loadState(this.roomState);
+            this.applyOnlineRoomState(data.roomState);
 
             if (this.selectedGame === 'reversi') window.sounds.playFlip();
             else if (this.selectedGame === 'connect4') window.sounds.playDrop();
@@ -414,8 +531,7 @@ class PocketApp {
         }
 
         else if (type === 'game_restarted') {
-            this.roomState = data.roomState;
-            this.activeEngine.reset();
+            this.applyOnlineRoomState(data.roomState);
             this.selectedSquare = null;
             this.currentValidDestinations = [];
             this.selectedHoleId = null;
@@ -433,39 +549,85 @@ class PocketApp {
         }
 
         else if (type === 'player_left') {
-            this.roomState = data.roomState;
-            this.showToast(`🚪 ${data.name} 離開了房間`);
+            this.applyOnlineRoomState(data.roomState);
+            this.showToast(data.reconnecting ? `⏳ ${data.name} 斷線，等待恢復` : `🚪 ${data.name} 離開了房間`);
             this.updatePlayerStatus();
+        }
+
+        else if (type === 'state_sync') {
+            this.applyOnlineRoomState(data.roomState);
+            this.selectedSquare = null;
+            this.currentValidDestinations = [];
+            this.selectedHoleId = null;
+            this.checkersValidDestinations = [];
+            this.blokusPendingPlacement = null;
+            this.renderOnlineBoard();
+        }
+
+        else if (type === 'restart_requested') {
+            this.applyOnlineRoomState(data.roomState);
+            if (this.roomState.restartVotes?.includes(this.myRole)) {
+                this.showToast(`🔄 已送出重新開局請求（${this.roomState.restartVotes.length}/${data.neededVotes}）`);
+            } else {
+                this.pendingGameAction = 'restart';
+                this.dom.actionConfirmTitle.textContent = `${data.by} 想重新開局`;
+                this.dom.actionConfirmDesc.textContent = '同意後，所有玩家都確認時才會重新開始。';
+                this.dom.actionConfirmButton.textContent = '同意重開';
+                this.dom.actionConfirmModal.classList.remove('hidden');
+            }
+        }
+
+        else if (type === 'restart_vote_expired') {
+            this.applyOnlineRoomState(data.roomState);
+            this.showToast('⌛ 重新開局請求已逾時');
         }
 
         else if (type === 'error') {
             this.showToast(`❌ ${data.message}`);
+            if (this.currentMode === 'online' && this.ws?.readyState === WebSocket.OPEN) {
+                this.ws.send(JSON.stringify({ type: 'sync_request' }));
+            }
         }
     }
 
     sendOnlineMovePayload(payloadExtra) {
-        if (!this.ws || this.myRole === 'spectator') return;
-
-        const engine = this.activeEngine;
-        const payload = {
-            type: 'move',
-            board: engine.board,
-            subBoards: engine.subBoards || null,
-            mainBoard: engine.mainBoard || null,
-            activeBoard: engine.activeBoard !== undefined ? engine.activeBoard : null,
-            playerPieces: engine.playerPieces || null,
-            nextTurn: engine.turn,
-            winner: engine.winner,
-            scores: this.selectedGame === 'reversi' ? engine.getCounts() : (this.selectedGame === 'blokus' ? engine.scores : null),
-            ...payloadExtra
-        };
-
-        this.ws.send(JSON.stringify(payload));
+        if (!this.ws || this.ws.readyState !== WebSocket.OPEN || this.myRole === 'spectator') return;
+        // The server owns the rule engine. Never send a mutable board snapshot
+        // from the phone; only send the requested action and its coordinates.
+        this.ws.send(JSON.stringify({ type: 'move', ...payloadExtra }));
     }
 
     requestOnlineRestart() {
         if (this.ws && this.roomId) {
             this.ws.send(JSON.stringify({ type: 'restart' }));
+        }
+    }
+
+    confirmGameAction(action) {
+        if (!['restart', 'leave'].includes(action)) return;
+        this.pendingGameAction = action;
+        const isRestart = action === 'restart';
+        this.dom.actionConfirmTitle.textContent = isRestart ? '重新開局？' : '返回大廳？';
+        this.dom.actionConfirmDesc.textContent = isRestart
+            ? (this.currentMode === 'online' ? '會請其他玩家確認；所有玩家同意才會重新開始。' : '目前棋局會重新開始。')
+            : '你會離開目前的遊戲房間。';
+        this.dom.actionConfirmButton.textContent = isRestart ? '確認重新開始' : '確認返回';
+        this.dom.actionConfirmModal.classList.remove('hidden');
+    }
+
+    cancelGameAction() {
+        this.pendingGameAction = null;
+        this.dom.actionConfirmModal.classList.add('hidden');
+    }
+
+    executeGameAction() {
+        const action = this.pendingGameAction;
+        this.cancelGameAction();
+        if (action === 'restart') {
+            if (this.currentMode === 'online') this.requestOnlineRestart();
+            else this.restartLocalGame();
+        } else if (action === 'leave') {
+            this.leaveGame();
         }
     }
 
@@ -489,6 +651,8 @@ class PocketApp {
         });
         if (roomId) params.set('room', roomId);
         if (rejoinRole) params.set('rejoinRole', rejoinRole);
+        const session = roomId ? this.getRoomSession(roomId) : null;
+        if (session?.resumeToken) params.set('resumeToken', session.resumeToken);
         // Carcassonne owns its map renderer and synchronised turn engine.
         window.location.href = `carcassonne.html?${params.toString()}`;
     }
@@ -832,10 +996,19 @@ class PocketApp {
     }
 
     leaveGame() {
-        if (this.ws) {
+        const leavingRoomId = this.roomId;
+        this.stopReconnect();
+        if (this.ws?.readyState === WebSocket.OPEN) {
+            // An explicit return frees the seat immediately. A network loss or
+            // page reload does not send this message, so its seat can recover.
+            this.ws.send(JSON.stringify({ type: 'leave_room' }));
+            const socket = this.ws;
+            setTimeout(() => socket.close(), 30);
+        } else if (this.ws) {
             this.ws.close();
-            this.ws = null;
         }
+        this.ws = null;
+        this.clearRoomSession(leavingRoomId);
         this.roomId = null;
         this.myRole = null;
         this.selectedSquare = null;
@@ -857,6 +1030,7 @@ class PocketApp {
     }
 
     renderOnlineBoard() {
+        this.configureEngineForRoom(this.roomState);
         const engine = this.activeEngine;
         if (this.roomState) {
             engine.loadState(this.roomState);
@@ -1678,10 +1852,30 @@ class PocketApp {
             return;
         }
         const engine = this.activeEngine;
+        if (this.currentMode === 'online' && engine.getAIMove(engine.turn)) {
+            this.showToast('還有可放的位置，不能跳過');
+            return;
+        }
         this.blokusPendingPlacement = null;
         engine.passTurn();
         this.selectNextUnusedBlokusPiece();
-        this.renderLocalBoard();
+        if (this.currentMode === 'online') {
+            // Optimistically show the pass, then let the canonical server
+            // state replace it for every player (including the sender).
+            this.roomState = {
+                ...(this.roomState || {}),
+                board: engine.board,
+                playerPieces: engine.playerPieces,
+                turn: engine.turn,
+                winner: engine.winner,
+                scores: engine.scores,
+                passedPlayers: [...engine.passedPlayers]
+            };
+            this.renderOnlineBoard();
+            this.sendOnlineMovePayload({ action: 'pass' });
+        } else {
+            this.renderLocalBoard();
+        }
         this.showToast(`⏩ ${engine.turn} 選擇 PASS`);
         if (engine.winner) {
             this.handleLocalGameOver(engine.winner);
@@ -1912,6 +2106,7 @@ class PocketApp {
     hideModals() {
         this.dom.qrModal.classList.add('hidden');
         this.dom.winModal.classList.add('hidden');
+        this.cancelGameAction();
     }
 
     spawnFloatingReaction(emoji, fromName) {

@@ -147,7 +147,13 @@ class ChineseCheckersEngine {
 
     loadState(state) {
         if (!state) return;
-        if (state.playerCount) this.playerCount = state.playerCount;
+        const roomPlayerCount = Number(state.playerCount) === 3 ? 3 : 2;
+        // A guest may enter a room with a different player count from the
+        // lobby choice they last used. Rebuild the board metadata first;
+        // merely changing playerCount leaves the two-player corners behind.
+        if (roomPlayerCount !== this.playerCount || this.players.length !== roomPlayerCount) {
+            this.init(roomPlayerCount);
+        }
         if (state.board) this.board = state.board;
         if (state.turn) {
             const idx = this.players.indexOf(state.turn);

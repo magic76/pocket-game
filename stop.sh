@@ -5,27 +5,47 @@ DIR="$(cd "$(dirname "$0")" && pwd)"
 PID_FILE="$DIR/.server.pid"
 STOPPED=0
 
+find_running_server() {
+    for p in $(pgrep -f 'node.*server\.js' 2>/dev/null || true); do
+        [ "$p" = "$$" ] && continue
+        PROCESS_DIR=$(readlink "/proc/$p/cwd" 2>/dev/null || true)
+        if [ "$PROCESS_DIR" = "$DIR" ]; then
+            echo "$p"
+        fi
+    done
+}
+
+stop_pid() {
+    TARGET_PID="$1"
+    [ -z "$TARGET_PID" ] && return
+    if ! kill -0 "$TARGET_PID" 2>/dev/null; then
+        return
+    fi
+    echo "🛑 正在停止機上棋藝盒伺服器 (PID: $TARGET_PID)..."
+    kill "$TARGET_PID" 2>/dev/null || true
+    for _ in 1 2 3 4 5; do
+        kill -0 "$TARGET_PID" 2>/dev/null || return
+        sleep 0.2
+    done
+    # Only an explicit stop may force-close a stuck server process.
+    kill -9 "$TARGET_PID" 2>/dev/null || true
+}
+
 # 1. 檢查 PID 檔案並終止
 if [ -f "$PID_FILE" ]; then
     PID=$(cat "$PID_FILE" 2>/dev/null)
     if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
-        echo "🛑 正在停止機上棋藝盒伺服器 (PID: $PID)..."
-        kill "$PID" 2>/dev/null
-        sleep 0.5
-        if kill -0 "$PID" 2>/dev/null; then
-            kill -9 "$PID" 2>/dev/null || true
-        fi
+        stop_pid "$PID"
         STOPPED=1
     fi
     rm -f "$PID_FILE"
 fi
 
-# 2. 針對 pocket-game 目錄下的 server.js 進行精準清理（避免誤殺其他 Node 服務）
-DANGLING_PIDS=$(pgrep -f "$DIR/server.js" 2>/dev/null || true)
+# 2. PID 檔遺失時，依工作目錄精準停止本專案的 server.js。
+DANGLING_PIDS=$(find_running_server)
 if [ -n "$DANGLING_PIDS" ]; then
     for p in $DANGLING_PIDS; do
-        echo "🛑 清理殘留的遊戲進程 (PID: $p)..."
-        kill -9 "$p" 2>/dev/null || true
+        stop_pid "$p"
         STOPPED=1
     done
 fi

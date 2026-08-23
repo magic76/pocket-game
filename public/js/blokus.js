@@ -97,7 +97,13 @@ class BlokusEngine {
 
     loadState(state) {
         if (!state) return;
-        if (state.playerCount) this.playerCount = state.playerCount;
+        const roomPlayerCount = Number(state.playerCount) === 4 ? 4 : 2;
+        // Room state is authoritative. Recreate players, start corners and
+        // piece trays when a visitor joins a 4-player room from a 2-player
+        // lobby (or the reverse), instead of carrying stale geometry over.
+        if (roomPlayerCount !== this.playerCount || this.players.length !== roomPlayerCount) {
+            this.init(roomPlayerCount);
+        }
         if (state.size) this.size = state.size;
         if (state.board) this.board = state.board;
         if (state.turn) {
@@ -108,6 +114,9 @@ class BlokusEngine {
         if (state.winner !== undefined) this.winner = state.winner;
         if (state.lastMove) this.lastMove = state.lastMove;
         if (state.scores) this.scores = state.scores;
+        if (Array.isArray(state.passedPlayers)) {
+            this.passedPlayers = new Set(state.passedPlayers.filter(color => this.players.includes(color)));
+        }
     }
 
     // Transformations
@@ -229,7 +238,9 @@ class BlokusEngine {
 
     passTurn() {
         if (this.winner) return;
-        this.passedPlayers.add(this.turn);
+        const color = this.turn;
+        this.passedPlayers.add(color);
+        this.lastMove = { color, type: 'pass' };
         this.advanceTurn();
     }
 

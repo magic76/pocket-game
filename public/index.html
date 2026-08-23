@@ -290,10 +290,10 @@
         <!-- Bottom Controls -->
         <div class="game-controls">
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                <button class="btn-secondary" onclick="window.app.currentMode === 'online' ? window.app.requestOnlineRestart() : window.app.restartLocalGame()">
+                <button class="btn-secondary" onclick="window.app.confirmGameAction('restart')">
                     🔄 重新開局
                 </button>
-                <button class="btn-secondary" onclick="window.app.leaveGame()">
+                <button class="btn-secondary" onclick="window.app.confirmGameAction('leave')">
                     🚪 返回大廳
                 </button>
             </div>
@@ -331,12 +331,24 @@
                 恭喜奪得本局勝利！
             </p>
             <div style="display: flex; gap: 8px;">
-                <button class="btn-primary" style="flex: 1;" onclick="window.app.currentMode === 'online' ? window.app.requestOnlineRestart() : window.app.restartLocalGame()">
+                <button class="btn-primary" style="flex: 1;" onclick="window.app.confirmGameAction('restart')">
                     🔄 再來一局
                 </button>
-                <button class="btn-secondary" style="flex: 1;" onclick="window.app.leaveGame()">
+                <button class="btn-secondary" style="flex: 1;" onclick="window.app.confirmGameAction('leave')">
                     🚪 回大廳
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 3: CONFIRM RESTART / LEAVE -->
+    <div id="action-confirm-modal" class="modal-overlay hidden" onclick="if(event.target === this) window.app.cancelGameAction();">
+        <div class="modal-card">
+            <h2 id="action-confirm-title" style="font-size: 1.25rem; font-weight: 850; margin-bottom: 8px;"></h2>
+            <p id="action-confirm-desc" style="font-size: .88rem; color: var(--text-muted); margin-bottom: 18px;"></p>
+            <div style="display: flex; gap: 8px;">
+                <button class="btn-secondary" style="flex: 1; min-height: 44px;" onclick="window.app.cancelGameAction()">取消</button>
+                <button id="action-confirm-button" class="btn-primary" style="flex: 1; min-height: 44px;" onclick="window.app.executeGameAction()">確認</button>
             </div>
         </div>
     </div>

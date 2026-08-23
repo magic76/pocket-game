@@ -66,11 +66,12 @@ class XiangqiEngine {
         if (!state) return;
         if (state.board) this.board = state.board;
         if (state.turn) {
-            // Map server black/white to xiangqi black/red
-            this.turn = state.turn === 'white' ? 'black' : state.turn === 'black' ? 'red' : state.turn;
+            // The authoritative server now sends Xiangqi's real colours
+            // (red/black), rather than transport roles.
+            this.turn = state.turn === 'white' ? 'black' : state.turn;
         }
         if (state.winner !== undefined) {
-            this.winner = state.winner === 'white' ? 'black' : state.winner === 'black' ? 'red' : state.winner;
+            this.winner = state.winner === 'white' ? 'black' : state.winner;
         }
         if (state.lastMove) this.lastMove = state.lastMove;
         if (state.capturedPieces) this.capturedPieces = state.capturedPieces;
@@ -81,7 +82,7 @@ class XiangqiEngine {
         return this.board[y][x];
     }
 
-    getValidMovesForPiece(x, y) {
+    getPseudoMovesForPiece(x, y, allowKingTarget = false) {
         const piece = this.getPiece(x, y);
         if (!piece) return [];
         const moves = [];
@@ -95,7 +96,7 @@ class XiangqiEngine {
                 moves.push({ x: tx, y: ty, captured: null });
                 return true;
             } else if (target.color !== color) {
-                moves.push({ x: tx, y: ty, captured: target });
+                if (target.type !== 'k' || allowKingTarget) moves.push({ x: tx, y: ty, captured: target });
                 return false; // hit enemy
             }
             return false; // hit friend
@@ -120,7 +121,7 @@ class XiangqiEngine {
                 while (cy >= 0 && cy < 10) {
                     const p = this.getPiece(x, cy);
                     if (p) {
-                        if (p.type === 'k' && p.color !== color) {
+                        if (p.type === 'k' && p.color !== color && allowKingTarget) {
                             moves.push({ x, y: cy, captured: p });
                         }
                         break;
@@ -182,7 +183,7 @@ class XiangqiEngine {
                         if (!target) {
                             moves.push({ x: nx, y: ny, captured: null });
                         } else {
-                            if (target.color !== color) {
+                            if (target.color !== color && (target.type !== 'k' || allowKingTarget)) {
                                 moves.push({ x: nx, y: ny, captured: target });
                             }
                             break;
@@ -236,7 +237,7 @@ class XiangqiEngine {
                             }
                         } else {
                             if (target) {
-                                if (target.color !== color) {
+                                if (target.color !== color && (target.type !== 'k' || allowKingTarget)) {
                                     moves.push({ x: nx, y: ny, captured: target });
                                 }
                                 break;
@@ -270,6 +271,57 @@ class XiangqiEngine {
         return moves;
     }
 
+    isInCheck(color) {
+        let king = null;
+        for (let y = 0; y < 10 && !king; y++) {
+            for (let x = 0; x < 9; x++) {
+                const piece = this.getPiece(x, y);
+                if (piece?.type === 'k' && piece.color === color) {
+                    king = { x, y };
+                    break;
+                }
+            }
+        }
+        if (!king) return true;
+        const opponent = color === 'red' ? 'black' : 'red';
+        for (let y = 0; y < 10; y++) {
+            for (let x = 0; x < 9; x++) {
+                const piece = this.getPiece(x, y);
+                if (piece?.color === opponent && this.getPseudoMovesForPiece(x, y, true).some(move => move.x === king.x && move.y === king.y)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    wouldLeaveGeneralInCheck(fx, fy, move) {
+        const piece = this.getPiece(fx, fy);
+        const target = this.getPiece(move.x, move.y);
+        this.board[move.y][move.x] = piece;
+        this.board[fy][fx] = null;
+        const unsafe = this.isInCheck(piece.color);
+        this.board[fy][fx] = piece;
+        this.board[move.y][move.x] = target;
+        return unsafe;
+    }
+
+    getValidMovesForPiece(x, y) {
+        const piece = this.getPiece(x, y);
+        if (!piece) return [];
+        return this.getPseudoMovesForPiece(x, y).filter(move => !this.wouldLeaveGeneralInCheck(x, y, move));
+    }
+
+    hasAnyLegalMoves(color) {
+        for (let y = 0; y < 10; y++) {
+            for (let x = 0; x < 9; x++) {
+                const piece = this.getPiece(x, y);
+                if (piece?.color === color && this.getValidMovesForPiece(x, y).length) return true;
+            }
+        }
+        return false;
+    }
+
     makeMove(fx, fy, tx, ty) {
         if (this.winner) return false;
         const piece = this.getPiece(fx, fy);
@@ -280,21 +332,17 @@ class XiangqiEngine {
         if (!valid) return false;
 
         const target = this.getPiece(tx, ty);
-        if (target) {
-            if (target.type === 'k') {
-                this.winner = this.turn;
-            }
-            this.capturedPieces[this.turn].push(target);
-        }
+        if (target) this.capturedPieces[this.turn].push(target);
 
         this.board[ty][tx] = piece;
         this.board[fy][fx] = null;
         this.lastMove = { from: { x: fx, y: fy }, to: { x: tx, y: ty }, piece, captured: target };
         this.selectedPiece = null;
 
-        if (!this.winner) {
-            this.turn = this.turn === 'red' ? 'black' : 'red';
-        }
+        const nextColor = this.turn === 'red' ? 'black' : 'red';
+        // In Xiangqi, both checkmate and stalemate lose for the side to move.
+        if (!this.hasAnyLegalMoves(nextColor)) this.winner = this.turn;
+        else this.turn = nextColor;
 
         return true;
     }

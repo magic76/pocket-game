@@ -8,6 +8,8 @@ class ChessEngine {
         this.lastMove = null;
         this.selectedPiece = null;
         this.capturedPieces = { white: [], black: [] };
+        this.castlingRights = null;
+        this.enPassantTarget = null;
         this.init();
     }
 
@@ -35,6 +37,11 @@ class ChessEngine {
         this.lastMove = null;
         this.selectedPiece = null;
         this.capturedPieces = { white: [], black: [] };
+        this.castlingRights = {
+            white: { kingSide: true, queenSide: true },
+            black: { kingSide: true, queenSide: true }
+        };
+        this.enPassantTarget = null;
     }
 
     reset() {
@@ -48,6 +55,8 @@ class ChessEngine {
         if (state.winner !== undefined) this.winner = state.winner;
         if (state.lastMove) this.lastMove = state.lastMove;
         if (state.capturedPieces) this.capturedPieces = state.capturedPieces;
+        if (state.castlingRights) this.castlingRights = state.castlingRights;
+        this.enPassantTarget = state.enPassantTarget || null;
     }
 
     getPiece(x, y) {
@@ -55,7 +64,7 @@ class ChessEngine {
         return this.board[y][x];
     }
 
-    getValidMovesForPiece(x, y) {
+    getPseudoMovesForPiece(x, y, includeSpecial = true) {
         const piece = this.getPiece(x, y);
         if (!piece) return [];
         const moves = [];
@@ -69,7 +78,8 @@ class ChessEngine {
                 moves.push({ x: tx, y: ty, captured: null });
                 return true;
             } else if (target.color !== color) {
-                moves.push({ x: tx, y: ty, captured: target });
+                // Kings are never captured in chess; checkmate ends the game.
+                if (target.type !== 'k' || !includeSpecial) moves.push({ x: tx, y: ty, captured: target });
                 return false;
             }
             return false;
@@ -96,8 +106,20 @@ class ChessEngine {
                     const ny = y + dir;
                     if (nx >= 0 && nx < 8 && ny >= 0 && ny < 8) {
                         const target = this.getPiece(nx, ny);
-                        if (target && target.color !== color) {
+                        if (target && target.color !== color && target.type !== 'k') {
                             moves.push({ x: nx, y: ny, captured: target });
+                        }
+                    }
+                }
+
+                // En passant: move to the passed square and remove the pawn
+                // that just advanced two squares beside this pawn.
+                if (includeSpecial && this.enPassantTarget && this.enPassantTarget.capturableBy === color) {
+                    const target = this.enPassantTarget;
+                    if (Math.abs(target.x - x) === 1 && target.y === y + dir && !this.getPiece(target.x, target.y)) {
+                        const capturedPawn = this.getPiece(target.x, y);
+                        if (capturedPawn?.type === 'p' && capturedPawn.color !== color) {
+                            moves.push({ x: target.x, y: target.y, captured: capturedPawn, enPassant: true });
                         }
                     }
                 }
@@ -129,7 +151,7 @@ class ChessEngine {
                         if (!target) {
                             moves.push({ x: nx, y: ny, captured: null });
                         } else {
-                            if (target.color !== color) {
+                            if (target.color !== color && (target.type !== 'k' || !includeSpecial)) {
                                 moves.push({ x: nx, y: ny, captured: target });
                             }
                             break;
@@ -153,7 +175,7 @@ class ChessEngine {
                         if (!target) {
                             moves.push({ x: nx, y: ny, captured: null });
                         } else {
-                            if (target.color !== color) {
+                            if (target.color !== color && (target.type !== 'k' || !includeSpecial)) {
                                 moves.push({ x: nx, y: ny, captured: target });
                             }
                             break;
@@ -180,7 +202,7 @@ class ChessEngine {
                         if (!target) {
                             moves.push({ x: nx, y: ny, captured: null });
                         } else {
-                            if (target.color !== color) {
+                            if (target.color !== color && (target.type !== 'k' || !includeSpecial)) {
                                 moves.push({ x: nx, y: ny, captured: target });
                             }
                             break;
@@ -200,11 +222,112 @@ class ChessEngine {
                 for (const [dx, dy] of dirs) {
                     addIfValid(x + dx, y + dy);
                 }
+                if (includeSpecial && !this.isInCheck(color)) {
+                    const homeY = color === 'white' ? 7 : 0;
+                    const rights = this.castlingRights?.[color];
+                    if (x === 4 && y === homeY && rights?.kingSide &&
+                        !this.getPiece(5, homeY) && !this.getPiece(6, homeY) &&
+                        this.getPiece(7, homeY)?.type === 'r' && this.getPiece(7, homeY)?.color === color &&
+                        !this.isSquareAttacked(5, homeY, color === 'white' ? 'black' : 'white') &&
+                        !this.isSquareAttacked(6, homeY, color === 'white' ? 'black' : 'white')) {
+                        moves.push({ x: 6, y: homeY, captured: null, castle: 'kingSide' });
+                    }
+                    if (x === 4 && y === homeY && rights?.queenSide &&
+                        !this.getPiece(1, homeY) && !this.getPiece(2, homeY) && !this.getPiece(3, homeY) &&
+                        this.getPiece(0, homeY)?.type === 'r' && this.getPiece(0, homeY)?.color === color &&
+                        !this.isSquareAttacked(3, homeY, color === 'white' ? 'black' : 'white') &&
+                        !this.isSquareAttacked(2, homeY, color === 'white' ? 'black' : 'white')) {
+                        moves.push({ x: 2, y: homeY, captured: null, castle: 'queenSide' });
+                    }
+                }
                 break;
             }
         }
 
         return moves;
+    }
+
+    isSquareAttacked(targetX, targetY, byColor) {
+        for (let y = 0; y < 8; y++) {
+            for (let x = 0; x < 8; x++) {
+                const piece = this.getPiece(x, y);
+                if (!piece || piece.color !== byColor) continue;
+                if (piece.type === 'p') {
+                    const dir = byColor === 'white' ? -1 : 1;
+                    if (y + dir === targetY && Math.abs(x - targetX) === 1) return true;
+                    continue;
+                }
+                if (piece.type === 'k') {
+                    if (Math.max(Math.abs(x - targetX), Math.abs(y - targetY)) === 1) return true;
+                    continue;
+                }
+                if (this.getPseudoMovesForPiece(x, y, false).some(move => move.x === targetX && move.y === targetY)) return true;
+            }
+        }
+        return false;
+    }
+
+    isInCheck(color) {
+        for (let y = 0; y < 8; y++) {
+            for (let x = 0; x < 8; x++) {
+                const piece = this.getPiece(x, y);
+                if (piece?.type === 'k' && piece.color === color) {
+                    return this.isSquareAttacked(x, y, color === 'white' ? 'black' : 'white');
+                }
+            }
+        }
+        return true;
+    }
+
+    wouldLeaveKingInCheck(fx, fy, move) {
+        const piece = this.getPiece(fx, fy);
+        const target = this.getPiece(move.x, move.y);
+        const color = piece.color;
+        let enPassantPawn = null;
+        let rook = null;
+        let rookFrom = null;
+        let rookTo = null;
+
+        this.board[move.y][move.x] = piece;
+        this.board[fy][fx] = null;
+        if (move.enPassant) {
+            enPassantPawn = this.getPiece(move.x, fy);
+            this.board[fy][move.x] = null;
+        }
+        if (move.castle) {
+            const rookX = move.castle === 'kingSide' ? 7 : 0;
+            const newRookX = move.castle === 'kingSide' ? 5 : 3;
+            rook = this.getPiece(rookX, fy);
+            rookFrom = rookX;
+            rookTo = newRookX;
+            this.board[fy][newRookX] = rook;
+            this.board[fy][rookX] = null;
+        }
+        const unsafe = this.isInCheck(color);
+        this.board[fy][fx] = piece;
+        this.board[move.y][move.x] = target;
+        if (move.enPassant) this.board[fy][move.x] = enPassantPawn;
+        if (rook) {
+            this.board[fy][rookFrom] = rook;
+            this.board[fy][rookTo] = null;
+        }
+        return unsafe;
+    }
+
+    getValidMovesForPiece(x, y) {
+        const piece = this.getPiece(x, y);
+        if (!piece) return [];
+        return this.getPseudoMovesForPiece(x, y).filter(move => !this.wouldLeaveKingInCheck(x, y, move));
+    }
+
+    hasAnyLegalMoves(color) {
+        for (let y = 0; y < 8; y++) {
+            for (let x = 0; x < 8; x++) {
+                const piece = this.getPiece(x, y);
+                if (piece?.color === color && this.getValidMovesForPiece(x, y).length) return true;
+            }
+        }
+        return false;
     }
 
     makeMove(fx, fy, tx, ty) {
@@ -216,13 +339,25 @@ class ChessEngine {
         const valid = validMoves.find(m => m.x === tx && m.y === ty);
         if (!valid) return false;
 
-        const target = this.getPiece(tx, ty);
-        if (target) {
-            if (target.type === 'k') {
-                this.winner = this.turn;
-            }
-            this.capturedPieces[this.turn].push(target);
+        let target = this.getPiece(tx, ty);
+        if (valid.enPassant) {
+            target = this.getPiece(tx, fy);
+            this.board[fy][tx] = null;
         }
+        if (target) this.capturedPieces[this.turn].push(target);
+
+        const disableRookRight = (color, x, y) => {
+            const homeY = color === 'white' ? 7 : 0;
+            if (y !== homeY || !this.castlingRights?.[color]) return;
+            if (x === 0) this.castlingRights[color].queenSide = false;
+            if (x === 7) this.castlingRights[color].kingSide = false;
+        };
+        if (piece.type === 'k') {
+            this.castlingRights[piece.color].kingSide = false;
+            this.castlingRights[piece.color].queenSide = false;
+        }
+        if (piece.type === 'r') disableRookRight(piece.color, fx, fy);
+        if (target?.type === 'r') disableRookRight(target.color, tx, ty);
 
         // Handle Pawn Promotion (auto Queen)
         if (piece.type === 'p' && (ty === 0 || ty === 7)) {
@@ -232,12 +367,26 @@ class ChessEngine {
 
         this.board[ty][tx] = piece;
         this.board[fy][fx] = null;
-        this.lastMove = { from: { x: fx, y: fy }, to: { x: tx, y: ty }, piece, captured: target };
+        if (valid.castle) {
+            const rookFrom = valid.castle === 'kingSide' ? 7 : 0;
+            const rookTo = valid.castle === 'kingSide' ? 5 : 3;
+            this.board[fy][rookTo] = this.board[fy][rookFrom];
+            this.board[fy][rookFrom] = null;
+        }
+        this.enPassantTarget = null;
+        if (piece.type === 'p' && Math.abs(ty - fy) === 2) {
+            this.enPassantTarget = {
+                x: fx,
+                y: (fy + ty) / 2,
+                capturableBy: piece.color === 'white' ? 'black' : 'white'
+            };
+        }
+        this.lastMove = { from: { x: fx, y: fy }, to: { x: tx, y: ty }, piece, captured: target, castle: valid.castle || null, enPassant: Boolean(valid.enPassant) };
         this.selectedPiece = null;
 
-        if (!this.winner) {
-            this.turn = this.turn === 'white' ? 'black' : 'white';
-        }
+        const nextColor = this.turn === 'white' ? 'black' : 'white';
+        if (!this.hasAnyLegalMoves(nextColor)) this.winner = this.isInCheck(nextColor) ? this.turn : 'draw';
+        else this.turn = nextColor;
 
         return true;
     }
