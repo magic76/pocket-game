@@ -12,7 +12,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const PLAYER_ROLES = ['black', 'white', 'blue', 'green'];
 const RECONNECT_GRACE_MS = 5 * 60 * 1000;
 const RESTART_VOTE_WINDOW_MS = 30 * 1000;
-const GAME_TYPES = new Set(['gomoku', 'reversi', 'xiangqi', 'chess', 'checkers', 'connect4', 'uttt', 'blokus', 'carcassonne']);
+const GAME_TYPES = new Set(['gomoku', 'reversi', 'xiangqi', 'chess', 'checkers', 'connect4', 'uttt', 'blokus', 'carcassonne', 'bingo']);
 
 // The eight classic boards use the same rule engines in browser and Node.
 // The browser only requests an action; this process keeps the canonical board.
@@ -33,7 +33,7 @@ const Engine = {
     checkers: loadBrowserEngine('checkers.js', 'ChineseCheckersEngine'),
     connect4: loadBrowserEngine('connect4.js', 'Connect4Engine'),
     uttt: loadBrowserEngine('uttt.js', 'UltimateTicTacToeEngine'),
-    blokus: loadBrowserEngine('blokus.js', 'BlokusEngine')
+    blokus: loadBrowserEngine('blokus.js', 'BlokusEngine'), bingo: loadBrowserEngine('bingo.js', 'BingoEngine')
 };
 
 const CARC_PLAYER_ORDER = ['red', 'blue', 'green', 'yellow'];
@@ -78,7 +78,7 @@ function normalizedGameType(value) {
 
 function normalizedPlayerCount(gameType, value) {
     const count = Number(value);
-    if (gameType === 'carcassonne') return Math.max(2, Math.min(4, Number.isInteger(count) ? count : 2));
+    if (gameType === 'carcassonne' || gameType === 'bingo') return Math.max(2, Math.min(4, Number.isInteger(count) ? count : 2));
     if (gameType === 'checkers') return count === 3 ? 3 : 2;
     if (gameType === 'blokus') return count === 4 ? 4 : 2;
     return 2;
@@ -94,6 +94,7 @@ function initialTurn(gameType) {
     if (gameType === 'uttt') return 'X';
     if (gameType === 'blokus') return 'blue';
     if (gameType === 'carcassonne') return 'red';
+    if (gameType === 'bingo') return 'black';
     return 'black';
 }
 
@@ -104,7 +105,7 @@ function roleForTurn(room, turn) {
         xiangqi: { red: 'black', black: 'white' },
         chess: { white: 'black', black: 'white' },
         connect4: { red: 'black', yellow: 'white' },
-        uttt: { X: 'black', O: 'white' }
+        uttt: { X: 'black', O: 'white' }, bingo: { black: 'black', white: 'white' }
     };
     if (twoPlayer[room.gameType]) return twoPlayer[room.gameType][turn] || null;
     if (room.gameType === 'checkers') {
@@ -128,6 +129,7 @@ function makeEngine(gameType, playerCount) {
         case 'connect4': return new Engine.connect4(7, 6);
         case 'uttt': return new Engine.uttt();
         case 'blokus': return new Engine.blokus(playerCount);
+        case 'bingo': return new Engine.bingo();
         default: return null;
     }
 }
@@ -150,7 +152,8 @@ function engineState(room) {
         enPassantTarget: engine.enPassantTarget ?? null,
         playerCount: engine.playerCount ?? room.playerCount,
         size: engine.size ?? null,
-        passedPlayers: engine.passedPlayers ? [...engine.passedPlayers] : null
+        passedPlayers: engine.passedPlayers ? [...engine.passedPlayers] : null,
+        marked: room.gameType === 'bingo' ? [...(engine.marked || [])] : null
     };
     if (room.gameType === 'reversi') state.scores = engine.getCounts();
     if (room.gameType === 'blokus') state.scores = engine.scores;
@@ -287,6 +290,11 @@ function applyMove(room, data) {
         case 'reversi': {
             const x = integer(data.x, 0, engine.size - 1);
             const y = integer(data.y, 0, engine.size - 1);
+            valid = x !== null && y !== null && engine.makeMove(x, y);
+            break;
+        }
+        case 'bingo': {
+            const x = integer(data.x, 0, 4), y = integer(data.y, 0, 4);
             valid = x !== null && y !== null && engine.makeMove(x, y);
             break;
         }

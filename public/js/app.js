@@ -29,7 +29,7 @@ class PocketApp {
             checkers: new ChineseCheckersEngine(2),
             connect4: new Connect4Engine(7, 6),
             uttt: new UltimateTicTacToeEngine(),
-            blokus: new BlokusEngine(2)
+            blokus: new BlokusEngine(2), bingo: new BingoEngine()
         };
 
         // Selection states
@@ -114,6 +114,7 @@ class PocketApp {
             cardUttt: document.getElementById('card-uttt'),
             cardBlokus: document.getElementById('card-blokus'),
             cardCarcassonne: document.getElementById('card-carcassonne'),
+            cardBingo: document.getElementById('card-bingo'),
             checkersCountBox: document.getElementById('checkers-count-box'),
             blokusCountBox: document.getElementById('blokus-count-box'),
             carcassonneCountBox: document.getElementById('carcassonne-count-box'),
@@ -262,7 +263,7 @@ class PocketApp {
         this.selectedGame = game;
         const cards = [
             'cardGomoku', 'cardReversi', 'cardXiangqi', 'cardChess',
-            'cardCheckers', 'cardConnect4', 'cardUttt', 'cardBlokus', 'cardCarcassonne'
+            'cardCheckers', 'cardConnect4', 'cardUttt', 'cardBlokus', 'cardCarcassonne', 'cardBingo'
         ];
         
         cards.forEach(c => {
@@ -721,6 +722,8 @@ class PocketApp {
             this.renderLocalBoard();
             if (engine.winner) return this.handleLocalGameOver(engine.winner);
             this.triggerAITurnIfNeeded();
+        } else if (this.selectedGame === 'bingo') {
+            if (engine.makeMove(x,y)) { this.renderLocalBoard(); if (engine.winner) this.handleLocalGameOver(engine.winner); }
         } else if (this.selectedGame === 'connect4') {
             const col = x;
             const valid = engine.makeMove(col);
@@ -1114,6 +1117,9 @@ class PocketApp {
             this.drawUTTTBoard(engine, onCellClick);
         } else if (this.selectedGame === 'blokus') {
             this.drawBlokusBoard(engine, onCellClick);
+        } else if (this.selectedGame === 'bingo') {
+            this.dom.boardEl.className = 'bingo-board';
+            engine.board.forEach((n,i)=>{ const c=document.createElement('button'); c.className='bingo-cell'+(engine.marked.includes(i)?' marked':''); c.textContent=n; c.onclick=()=>onCellClick(i%5,Math.floor(i/5)); this.dom.boardEl.appendChild(c); });
         }
     }
 
