@@ -8,6 +8,9 @@ class PocketApp {
         this.checkersPlayerCount = 2; // 2 or 3 players
         this.blokusPlayerCount = 2;   // 2 or 4 players
         this.carcassonnePlayerCount = 2; // 2 to 4 players
+        this.bingoPlayerCount = 2;
+        this.bingoDraft = [];
+        this.bingoCustomMode = false;
 
         // Online State
         this.ws = null;
@@ -118,6 +121,7 @@ class PocketApp {
             checkersCountBox: document.getElementById('checkers-count-box'),
             blokusCountBox: document.getElementById('blokus-count-box'),
             carcassonneCountBox: document.getElementById('carcassonne-count-box'),
+            bingoCountBox: document.getElementById('bingo-count-box'),
             onlinePanel: document.getElementById('online-panel'),
             hotseatPanel: document.getElementById('hotseat-panel'),
             aiPanel: document.getElementById('ai-panel')
@@ -164,7 +168,7 @@ class PocketApp {
         const names = {
             gomoku: '🎯 五子棋', reversi: '⚪⚫ 黑白棋', xiangqi: '🀄 中國象棋', chess: '♟️ 西洋棋',
             checkers: '⭐ 六角跳棋', connect4: '🟡🔴 重力四子棋', uttt: '❌⭕ 終極井字棋',
-            blokus: '🧱 德國圍棋', carcassonne: '🏰 卡卡頌'
+            blokus: '🧱 德國圍棋', carcassonne: '🏰 卡卡頌', bingo: '🎱 賓果'
         };
         rooms.forEach(room => {
             const button = document.createElement('button');
@@ -249,6 +253,7 @@ class PocketApp {
                 this.engines.blokus = new BlokusEngine(count);
             }
         }
+        if (game === 'bingo') this.bingoPlayerCount = Number(roomState.playerCount) || 2;
     }
 
     applyOnlineRoomState(roomState) {
@@ -280,11 +285,12 @@ class PocketApp {
             this.dom.blokusCountBox.classList.toggle('hidden', game !== 'blokus');
         }
         if (this.dom.carcassonneCountBox) {
-            this.dom.carcassonneCountBox.classList.toggle('hidden', game !== 'carcassonne' && game !== 'bingo');
+            this.dom.carcassonneCountBox.classList.toggle('hidden', game !== 'carcassonne');
         }
+        if (this.dom.bingoCountBox) this.dom.bingoCountBox.classList.toggle('hidden', game !== 'bingo');
         const aiPill = document.querySelector('.mode-pill[data-mode="ai"]');
-        if (aiPill) aiPill.classList.toggle('hidden', game === 'carcassonne');
-        if (game === 'carcassonne' && this.currentMode === 'ai') this.selectMode('online');
+        if (aiPill) aiPill.classList.toggle('hidden', game === 'carcassonne' || game === 'bingo');
+        if ((game === 'carcassonne' || game === 'bingo') && this.currentMode !== 'online') this.selectMode('online');
 
         window.sounds.playPing();
     }
@@ -314,8 +320,10 @@ class PocketApp {
         });
         window.sounds.playPing();
     }
+    setBingoCount(count) { this.bingoPlayerCount = count; document.querySelectorAll('.bingo-pill').forEach(el => el.classList.toggle('active', Number(el.dataset.count) === count)); window.sounds.playPing(); }
 
     selectMode(mode) {
+        if (this.selectedGame === 'bingo' && mode !== 'online') { this.showToast('賓果需要多人連線，讓每位玩家保有自己的牌面'); return; }
         this.currentMode = mode;
         document.querySelectorAll('.mode-pill').forEach(el => {
             el.classList.toggle('active', el.dataset.mode === mode);
@@ -443,7 +451,7 @@ class PocketApp {
         this.connectWS(() => {
             const pCount = this.selectedGame === 'checkers' ? this.checkersPlayerCount :
                           (this.selectedGame === 'blokus' ? this.blokusPlayerCount :
-                          ((this.selectedGame === 'carcassonne' || this.selectedGame === 'bingo') ? this.carcassonnePlayerCount : 2));
+                          (this.selectedGame === 'carcassonne' ? this.carcassonnePlayerCount : (this.selectedGame === 'bingo' ? this.bingoPlayerCount : 2)));
             this.ws.send(JSON.stringify({
                 type: 'create_room',
                 gameType: this.selectedGame,
@@ -529,6 +537,12 @@ class PocketApp {
             if (this.roomState.winner) {
                 this.handleOnlineGameOver(this.roomState.winner);
             }
+        }
+
+        else if (type === 'bingo_updated') {
+            this.applyOnlineRoomState(data.roomState);
+            this.drawBingoBoard();
+            if (this.roomState?.bingoState?.winner) this.handleOnlineGameOver(this.roomState.bingoState.winner);
         }
 
         else if (type === 'game_restarted') {
@@ -662,6 +676,7 @@ class PocketApp {
     // 🪑 LOCAL & AI MODES
     // ==========================================
     startHotseatGame() {
+        if (this.selectedGame === 'bingo') { this.showToast('賓果目前使用多人連線模式，每人保有自己的牌面'); return; }
         if (this.selectedGame === 'carcassonne') {
             this.openCarcassonneRoom(null, 'hotseat', this.carcassonnePlayerCount);
             return;
@@ -966,7 +981,7 @@ class PocketApp {
             checkers: `六角星跳棋 (${this.checkersPlayerCount}人局)`,
             connect4: '重力四子棋 (Connect 4)',
             uttt: '終極井字棋 (Ultimate Tic-Tac-Toe)',
-            blokus: `德國圍棋 (${this.blokusPlayerCount}人局)`
+            blokus: `德國圍棋 (${this.blokusPlayerCount}人局)`, bingo: `賓果 (${this.bingoPlayerCount}人局)`
         };
         this.dom.gameTitleText.textContent = titles[this.selectedGame];
 
@@ -985,6 +1000,8 @@ class PocketApp {
             this.dom.boardContainer.className = 'board-container connect4-board-ratio';
         } else if (this.selectedGame === 'blokus') {
             this.dom.boardContainer.className = 'board-container blokus-board-container';
+        } else if (this.selectedGame === 'bingo') {
+            this.dom.boardContainer.className = 'board-container bingo-board-container';
         } else {
             this.dom.boardContainer.className = 'board-container square-board';
         }
@@ -1033,6 +1050,7 @@ class PocketApp {
     }
 
     renderOnlineBoard() {
+        if (this.selectedGame === 'bingo') { this.drawBingoBoard(); this.updatePlayerStatus(); return; }
         this.configureEngineForRoom(this.roomState);
         const engine = this.activeEngine;
         if (this.roomState) {
@@ -1117,10 +1135,49 @@ class PocketApp {
             this.drawUTTTBoard(engine, onCellClick);
         } else if (this.selectedGame === 'blokus') {
             this.drawBlokusBoard(engine, onCellClick);
-        } else if (this.selectedGame === 'bingo') {
-            this.dom.boardEl.className = 'bingo-board';
-            engine.board.forEach((n,i)=>{ const c=document.createElement('button'); c.className='bingo-cell'+(engine.marked.includes(i)?' marked':''); c.textContent=n; c.onclick=()=>onCellClick(i%5,Math.floor(i/5)); this.dom.boardEl.appendChild(c); });
         }
+    }
+
+    randomBingoCard() { this.bingoCustomMode = false; this.ws?.send(JSON.stringify({ type: 'bingo_setup', mode: 'random' })); }
+    startCustomBingoCard() { this.bingoDraft = Array(25).fill(null); this.bingoCustomMode = true; this.drawBingoBoard(); }
+    placeBingoNumber(index) { if (this.bingoDraft[index]) return; const next = this.bingoDraft.filter(Boolean).length + 1; this.bingoDraft[index] = next; this.drawBingoBoard(); }
+    undoBingoNumber() { const last = Math.max(...this.bingoDraft.map((value, index) => value ? index : -1)); if (last >= 0) { const number = Math.max(...this.bingoDraft.filter(Boolean)); this.bingoDraft[this.bingoDraft.indexOf(number)] = null; } this.drawBingoBoard(); }
+    submitBingoCard() { if (this.bingoDraft.filter(Boolean).length !== 25) return this.showToast('請在 25 個位置都點上數字'); this.ws?.send(JSON.stringify({ type: 'bingo_setup', mode: 'manual', card: this.bingoDraft })); }
+    drawBingoBoard() {
+        const state = this.roomState?.bingoState, role = this.myRole;
+        this.dom.boardEl.className = 'bingo-board'; this.dom.boardEl.innerHTML = '';
+        if (!state) return;
+        const card = state.cards?.[role];
+        if (!card) {
+            const setup = document.createElement('div'); setup.className = 'bingo-setup';
+            if (!this.bingoCustomMode) { setup.innerHTML = '<strong>選擇你的賓果牌</strong><button class="btn-primary" onclick="window.app.randomBingoCard()">🎲 隨機產生</button><button class="btn-secondary" onclick="window.app.startCustomBingoCard()">✋ 自訂 1–25 排列</button><span>自訂時只要依序點選數字，不用輸入。</span>'; this.dom.boardEl.appendChild(setup); return; }
+            const preview = document.createElement('div'); preview.className = 'bingo-draft';
+            for (let i = 0; i < 25; i++) { const cell = document.createElement('button'); cell.textContent = this.bingoDraft[i] || '＋'; cell.disabled = Boolean(this.bingoDraft[i]); cell.onclick = () => this.placeBingoNumber(i); preview.appendChild(cell); } setup.appendChild(preview);
+            const filled = this.bingoDraft.filter(Boolean).length; const hint = document.createElement('strong'); hint.textContent = `點下一個位置，會放入 ${filled + 1}（${filled}/25）`; setup.appendChild(hint);
+            const actions = document.createElement('div'); actions.className = 'bingo-draft-actions'; const undo = document.createElement('button'); undo.className = 'btn-secondary'; undo.textContent = '↩ 上一步'; undo.onclick = () => this.undoBingoNumber(); const submit = document.createElement('button'); submit.className = 'btn-primary'; submit.textContent = '確認牌面'; submit.disabled = filled !== 25; submit.onclick = () => this.submitBingoCard(); actions.append(undo, submit); setup.appendChild(actions); this.dom.boardEl.appendChild(setup); return;
+        }
+        const called = new Set(state.called || []), marks = new Set(state.marks?.[role] || []);
+        // Keep the board responsive even while the authoritative update is in flight.
+        // Called values are considered marked for line preview; the server remains final.
+        card.forEach((number, index) => { if (called.has(number)) marks.add(index); });
+        const bingoLines = [
+            ...Array.from({ length: 5 }, (_, row) => Array.from({ length: 5 }, (_, col) => row * 5 + col)),
+            ...Array.from({ length: 5 }, (_, col) => Array.from({ length: 5 }, (_, row) => row * 5 + col)),
+            [0, 6, 12, 18, 24], [4, 8, 12, 16, 20]
+        ];
+        const previewLines = bingoLines.filter(line => line.every(index => marks.has(index)));
+        const completedLines = previewLines.length ? previewLines : (state.lines?.[role] || []);
+        const lineCells = new Set(completedLines.flat());
+        const winnerName = this.roomState?.players?.[state.winner]?.name || state.winner;
+        const winnerLineCount = state.lineCounts?.[state.winner] || (state.winner === role ? completedLines.length : 0);
+        const info = document.createElement('div'); info.className = 'bingo-info'; info.textContent = state.winner ? `🏆 ${winnerName} 賓果！・完成 ${winnerLineCount}/5 條` : `已抽 ${state.called?.length || 0} 顆・目前連線 ${completedLines.length}/5 條${this.roomState?.lastMove?.number ? `・最新 ${this.roomState.lastMove.number}` : ''}`; this.dom.boardEl.appendChild(info);
+        if (completedLines.length) {
+            const lineSummary = document.createElement('div'); lineSummary.className = 'bingo-lines';
+            lineSummary.textContent = `✨ 已連線 ${completedLines.length}/5：${completedLines.map((line, index) => `第 ${index + 1} 條`).join('、')}`;
+            this.dom.boardEl.appendChild(lineSummary);
+        }
+        const isCaller = role === this.roomState?.turn && !state.winner;
+        card.forEach((number, index) => { const cell = document.createElement('button'); cell.className = `bingo-cell${marks.has(index) ? ' marked' : ''}${called.has(number) ? ' called' : ''}${lineCells.has(index) ? ' line-cell' : ''}`; cell.textContent = number; if (lineCells.has(index)) cell.setAttribute('aria-label', `${number}，連線格`); cell.disabled = Boolean(state.winner) || (isCaller ? called.has(number) : !called.has(number) || marks.has(index)); cell.onclick = () => isCaller ? this.ws?.send(JSON.stringify({ type: 'bingo_call', number })) : this.ws?.send(JSON.stringify({ type: 'bingo_mark', index })); this.dom.boardEl.appendChild(cell); });
     }
 
     drawGomokuBoard(engine, onCellClick) {
@@ -1956,6 +2013,15 @@ class PocketApp {
     updatePlayerStatus() {
         const engine = this.activeEngine;
         const currentTurn = engine.turn;
+
+        if (this.selectedGame === 'bingo') {
+            const ready = Object.keys(this.roomState?.bingoState?.ready || {}).length;
+            this.dom.topPlayerName.textContent = `🎱 賓果・${ready}/${this.roomState?.playerCount || this.bingoPlayerCount} 人已備妥`;
+            const mine = this.roomState?.turn === this.myRole;
+            this.dom.bottomPlayerName.textContent = mine ? '👉 輪到你選數字' : '✅ 點已選出的號碼';
+            this.updateTurnPills(false, mine);
+            return;
+        }
 
         if (this.selectedGame === 'connect4') {
             this.dom.topPlayerName.textContent = '🟡 玩家二 (黃子)';

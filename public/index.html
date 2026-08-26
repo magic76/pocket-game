@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>機上離線棋藝盒 - Pocket Game Hub (10-in-1)</title>
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=bingo-lines-3">
     <style>
         .checkers-pill-group, .blokus-pill-group, .carcassonne-pill-group {
             display: flex;
@@ -51,7 +51,7 @@
     <header>
         <div class="logo">
             <span>✈️</span>
-            <span>口袋棋院 (9合1)</span>
+            <span>口袋棋院 (10合1)</span>
         </div>
         <div class="header-actions">
             <button class="icon-btn" onclick="window.sounds.toggleMute(); this.textContent = window.sounds.muted ? '🔇 靜音' : '🔊 音效';">
@@ -75,7 +75,7 @@
         </div>
 
         <div class="section-title">
-            <span>🎮 選擇遊戲（九合一）</span>
+            <span>🎮 選擇遊戲（十合一）</span>
         </div>
 
         <!-- 9-Game Selection Grid -->
@@ -172,6 +172,16 @@
                 <div class="carcassonne-pill" data-count="4" onclick="window.app.setCarcassonneCount(4)">👥 4 人</div>
             </div>
             <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 8px;">支援同機輪流與房間連線；AI 模式暫不提供。</p>
+        </div>
+
+        <div id="bingo-count-box" class="action-box hidden" style="margin-bottom: 12px; padding: 12px;">
+            <label style="font-size: .85rem; font-weight: 700; color: var(--accent);">🎱 賓果玩家人數</label>
+            <div class="carcassonne-pill-group">
+                <div class="bingo-pill active" data-count="2" onclick="window.app.setBingoCount(2)">👥 2 人</div>
+                <div class="bingo-pill" data-count="3" onclick="window.app.setBingoCount(3)">👥 3 人</div>
+                <div class="bingo-pill" data-count="4" onclick="window.app.setBingoCount(4)">👥 4 人</div>
+            </div>
+            <p style="font-size: .75rem; color: var(--text-muted); margin-top: 8px;">進房後每人可隨機產生或自訂 1–25 的 5×5 排列。</p>
         </div>
 
         <div class="section-title">
@@ -364,6 +374,6 @@
 <script src="js/connect4.js"></script>
 <script src="js/uttt.js"></script>
 <script src="js/blokus.js"></script>
-<script src="js/bingo.js"></script><script src="js/app.js"></script>
+<script src="js/bingo.js?v=bingo-lines-3"></script><script src="js/app.js?v=bingo-lines-3"></script>
 </body>
 </html>

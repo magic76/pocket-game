@@ -191,7 +191,29 @@ function publicPlayer(player) {
     return player ? { name: player.name, ready: player.ready, connected: isConnected(player), reconnecting: !isConnected(player) } : null;
 }
 
-function getRoomPublicState(room) {
+function randomBingoCard() {
+    const pool = Array.from({ length: 25 }, (_, index) => index + 1);
+    for (let i = pool.length - 1; i > 0; i--) { const j = crypto.randomInt(i + 1); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+    return pool.slice(0, 25);
+}
+function validBingoCard(card) {
+    return Array.isArray(card) && card.length === 25 && card.every(n => Number.isInteger(n) && n >= 1 && n <= 25) && new Set(card).size === 25;
+}
+const BINGO_LINES = [
+    ...Array.from({ length: 5 }, (_, row) => Array.from({ length: 5 }, (_, col) => row * 5 + col)),
+    ...Array.from({ length: 5 }, (_, col) => Array.from({ length: 5 }, (_, row) => row * 5 + col)),
+    [0, 6, 12, 18, 24], [4, 8, 12, 16, 20]
+];
+function newBingoState() { return { called: [], cards: {}, marks: {}, lines: {}, lineCounts: {}, ready: {}, winner: null }; }
+function bingoCompletedLines(marks) {
+    const marked = new Set(marks);
+    return BINGO_LINES.filter(line => line.every(index => marked.has(index)));
+}
+function bingoHasLine(marks) {
+    return bingoCompletedLines(marks).length > 0;
+}
+
+function getRoomPublicState(room, viewerRole = null) {
     const state = room.engine ? engineState(room) : {
         turn: room.turn,
         winner: room.winner,
@@ -213,7 +235,16 @@ function getRoomPublicState(room) {
         spectatorCount: room.spectators.length,
         restartVotes: [...room.restartVotes],
         carcassonneState: room.carcassonneState || null,
-        carcassonneVersion: room.carcassonneVersion || 0
+        carcassonneVersion: room.carcassonneVersion || 0,
+        bingoState: room.bingoState ? {
+            called: room.bingoState.called,
+            ready: room.bingoState.ready,
+            winner: room.bingoState.winner,
+            lineCounts: room.bingoState.lineCounts || {},
+            cards: viewerRole && room.bingoState.cards[viewerRole] ? { [viewerRole]: room.bingoState.cards[viewerRole] } : {},
+            marks: viewerRole && room.bingoState.marks[viewerRole] ? { [viewerRole]: room.bingoState.marks[viewerRole] } : {},
+            lines: viewerRole && room.bingoState.lines[viewerRole] ? { [viewerRole]: room.bingoState.lines[viewerRole] } : {}
+        } : null
     };
 }
 
@@ -249,6 +280,14 @@ function broadcast(room, message, exclude = null) {
 }
 
 function broadcastState(room, type, extra = {}) {
+    if (room.gameType === 'bingo') {
+        for (const role of PLAYER_ROLES) {
+            const socket = room.players[role]?.ws;
+            if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type, ...extra, roomState: getRoomPublicState(room, role) }));
+        }
+        for (const spectator of room.spectators) if (spectator.ws?.readyState === WebSocket.OPEN) spectator.ws.send(JSON.stringify({ type, ...extra, roomState: getRoomPublicState(room) }));
+        return;
+    }
     broadcast(room, { type, ...extra, roomState: getRoomPublicState(room) });
 }
 
@@ -588,6 +627,9 @@ function resetRoom(room, by) {
         room.carcassonneState = null;
         room.carcassonneVersion = 0;
         room.turn = initialTurn(room.gameType);
+    } else if (room.gameType === 'bingo') {
+        room.bingoState = newBingoState();
+        room.turn = 'black';
     } else {
         room.engine.reset();
         room.turn = room.engine.turn;
@@ -721,7 +763,7 @@ wss.on('connection', ws => {
                     id: generateRoomId(),
                     gameType,
                     playerCount,
-                    engine: gameType === 'carcassonne' ? null : makeEngine(gameType, playerCount),
+                    engine: (gameType === 'carcassonne' || gameType === 'bingo') ? null : makeEngine(gameType, playerCount),
                     turn: initialTurn(gameType),
                     winner: null,
                     scores: null,
@@ -732,6 +774,7 @@ wss.on('connection', ws => {
                     moveHistory: [],
                     carcassonneState: null,
                     carcassonneVersion: 0,
+                    bingoState: gameType === 'bingo' ? newBingoState() : null,
                     restartVotes: new Set(),
                     restartVoteTimer: null,
                     lastActivity: Date.now()
@@ -740,7 +783,7 @@ wss.on('connection', ws => {
                 rooms.set(room.id, room);
                 currentRoomId = room.id;
                 currentRole = 'black';
-                ws.send(JSON.stringify({ type: 'room_created', roomId: room.id, role: currentRole, resumeToken: host.resumeToken, roomState: getRoomPublicState(room) }));
+                ws.send(JSON.stringify({ type: 'room_created', roomId: room.id, role: currentRole, resumeToken: host.resumeToken, roomState: getRoomPublicState(room, currentRole) }));
                 console.log(`[Room ${room.id}] Created (${gameType}, ${playerCount}P) by ${playerName}`);
                 return;
             }
@@ -778,7 +821,7 @@ wss.on('connection', ws => {
                     roomId: room.id,
                     role,
                     resumeToken: role === 'spectator' ? null : room.players[role].resumeToken,
-                    roomState: getRoomPublicState(room)
+                    roomState: getRoomPublicState(room, currentRole)
                 }));
                 broadcastState(room, reconnected ? 'player_reconnected' : 'player_joined', { name: playerName, role, reconnected }, ws);
                 return;
@@ -797,7 +840,7 @@ wss.on('connection', ws => {
             }
 
             if (data.type === 'sync_request') {
-                ws.send(JSON.stringify({ type: 'state_sync', roomState: getRoomPublicState(room) }));
+                ws.send(JSON.stringify({ type: 'state_sync', roomState: getRoomPublicState(room, currentRole) }));
                 return;
             }
 
@@ -851,6 +894,63 @@ wss.on('connection', ws => {
                 if (room.status !== 'ended') updateStatus(room);
                 room.lastActivity = Date.now();
                 broadcastState(room, 'carcassonne_state');
+                return;
+            }
+
+            if (data.type === 'bingo_setup') {
+                if (room.gameType !== 'bingo' || currentRole === 'spectator' || !room.players[currentRole]) return;
+                if (room.bingoState.ready[currentRole]) { ws.send(JSON.stringify({ type: 'error', message: '牌面已確認，不能修改' })); return; }
+                const card = data.mode === 'random' ? randomBingoCard() : data.card;
+                if (!validBingoCard(card)) { ws.send(JSON.stringify({ type: 'error', message: '牌面須為 1–25 的不重複排列' })); return; }
+                room.bingoState.cards[currentRole] = card;
+                room.bingoState.marks[currentRole] = [];
+                room.bingoState.lines[currentRole] = [];
+                room.bingoState.lineCounts[currentRole] = 0;
+                room.bingoState.ready[currentRole] = true;
+                const roles = roomRoles(room.playerCount);
+                if (roles.every(role => room.players[role] && room.bingoState.ready[role])) room.status = 'playing';
+                broadcastState(room, 'bingo_updated');
+                return;
+            }
+            if (data.type === 'bingo_call') {
+                if (room.gameType !== 'bingo' || currentRole !== room.turn || !roomRoles(room.playerCount).every(role => room.bingoState.ready[role]) || room.bingoState.winner) return;
+                const number = integer(data.number, 1, 25);
+                if (number === null || room.bingoState.called.includes(number)) { ws.send(JSON.stringify({ type: 'error', message: '請選一個尚未出現的數字' })); return; }
+                room.bingoState.called.push(number);
+                room.lastMove = { number, by: currentRole };
+                const roles = roomRoles(room.playerCount);
+                // A called number is automatically marked on every ready player's card.
+                // The server remains authoritative for line counts and the winner.
+                for (const role of roles) {
+                    const card = room.bingoState.cards[role], marks = room.bingoState.marks[role] || [];
+                    const index = card ? card.indexOf(number) : -1;
+                    if (index >= 0 && !marks.includes(index)) marks.push(index);
+                    room.bingoState.marks[role] = marks;
+                    const completedLines = bingoCompletedLines(marks);
+                    room.bingoState.lines[role] = completedLines;
+                    room.bingoState.lineCounts[role] = completedLines.length;
+                    if (!room.bingoState.winner && completedLines.length >= 5) room.bingoState.winner = role;
+                }
+                if (room.bingoState.winner) {
+                    room.winner = room.bingoState.winner;
+                    room.status = 'ended';
+                } else {
+                    const turnIndex = roles.indexOf(currentRole);
+                    room.turn = roles[(turnIndex + 1) % roles.length];
+                }
+                broadcastState(room, 'bingo_updated');
+                return;
+            }
+            if (data.type === 'bingo_mark') {
+                if (room.gameType !== 'bingo' || currentRole === 'spectator' || !roomRoles(room.playerCount).every(role => room.bingoState.ready[role]) || room.bingoState.winner) return;
+                const index = integer(data.index, 0, 24), card = room.bingoState.cards[currentRole], marks = room.bingoState.marks[currentRole];
+                if (index === null || !card || !marks || !room.bingoState.called.includes(card[index]) || marks.includes(index)) { ws.send(JSON.stringify({ type: 'error', message: '只能標記已抽出的號碼' })); return; }
+                marks.push(index);
+                const completedLines = bingoCompletedLines(marks);
+                room.bingoState.lines[currentRole] = completedLines;
+                room.bingoState.lineCounts[currentRole] = completedLines.length;
+                if (completedLines.length >= 5) { room.bingoState.winner = currentRole; room.winner = currentRole; room.status = 'ended'; }
+                broadcastState(room, 'bingo_updated');
                 return;
             }
 
