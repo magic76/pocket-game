@@ -280,7 +280,7 @@ class PocketApp {
             this.dom.blokusCountBox.classList.toggle('hidden', game !== 'blokus');
         }
         if (this.dom.carcassonneCountBox) {
-            this.dom.carcassonneCountBox.classList.toggle('hidden', game !== 'carcassonne');
+            this.dom.carcassonneCountBox.classList.toggle('hidden', game !== 'carcassonne' && game !== 'bingo');
         }
         const aiPill = document.querySelector('.mode-pill[data-mode="ai"]');
         if (aiPill) aiPill.classList.toggle('hidden', game === 'carcassonne');
@@ -443,7 +443,7 @@ class PocketApp {
         this.connectWS(() => {
             const pCount = this.selectedGame === 'checkers' ? this.checkersPlayerCount :
                           (this.selectedGame === 'blokus' ? this.blokusPlayerCount :
-                          (this.selectedGame === 'carcassonne' ? this.carcassonnePlayerCount : 2));
+                          ((this.selectedGame === 'carcassonne' || this.selectedGame === 'bingo') ? this.carcassonnePlayerCount : 2));
             this.ws.send(JSON.stringify({
                 type: 'create_room',
                 gameType: this.selectedGame,
