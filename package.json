@@ -6,7 +6,7 @@
   "scripts": {
     "start": "./start.sh",
     "stop": "./stop.sh",
-    "test": "node --check server.js && node test/core-rules.test.js && node test/multiplayer.test.js"
+    "test": "node --check server.js && node test/core-rules.test.js && node test/multiplayer.test.js && node test/p2p-authority.test.cjs"
   },
   "keywords": [],
   "author": "",
