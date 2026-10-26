@@ -1,4 +1,5 @@
 // One Durable Object per room. Signaling only; moves never pass through this Worker.
+let turnCache=null;
 const isCode=s=>/^[A-Z2-9]{8}$/.test(s);
 const originAllowed=(request,env)=>{
  const origin=request.headers.get('Origin');
@@ -14,18 +15,34 @@ export default {
   if(url.pathname==='/health')return Response.json({ok:true});
   if(url.pathname==='/turn-credentials'){
    if(!originAllowed(request,env))return new Response('Forbidden',{status:403});
-   // Cloudflare TURN service: credentials supplied by provider-specific API, not embedded in client.
-   // Set TURN_AUTH_URL & TURN_AUTH_TOKEN if your managed TURN provider supports this API shape.
-   if(!env.TURN_AUTH_URL||!env.TURN_AUTH_TOKEN)return Response.json({iceServers:[{urls:'stun:stun.l.google.com:19302'}]},{headers:{'Cache-Control':'no-store'}});
-   const upstream=await fetch(env.TURN_AUTH_URL,{headers:{Authorization:`Bearer ${env.TURN_AUTH_TOKEN}`}});
-   if(!upstream.ok)return Response.json({error:'TURN unavailable'},{status:503});
-   const data=await upstream.json();if(!Array.isArray(data.iceServers))return Response.json({error:'Invalid TURN response'},{status:502});
-   return Response.json({iceServers:data.iceServers},{headers:{'Cache-Control':'no-store'}});
+   const stun={iceServers:[{urls:'stun:stun.l.google.com:19302'}]};
+   if(!env.TURN_KEY_ID||!env.TURN_KEY_API_TOKEN)return Response.json(stun,{headers:{'Cache-Control':'no-store'}});
+   // Cache only in the Worker isolate, never in a shared browser cache. Credentials expire after TTL.
+   const cacheKey=env.TURN_KEY_ID;
+   const now=Date.now();
+   if(turnCache?.key===cacheKey&&turnCache.until>now)return Response.json(turnCache.value,{headers:{'Cache-Control':'no-store'}});
+   try{
+    const resp=await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${encodeURIComponent(env.TURN_KEY_ID)}/credentials/generate-ice-servers`,{
+     method:'POST',headers:{Authorization:`Bearer ${env.TURN_KEY_API_TOKEN}`,'Content-Type':'application/json'},body:JSON.stringify({ttl:86400})
+    });
+    if(!resp.ok)throw new Error(`TURN provider status ${resp.status}`);
+    const raw=await resp.json();
+    // Cloudflare returns {iceServers:[...]}; do not leak provider API token.
+    const iceServers=raw.iceServers||raw.result?.iceServers;
+    if(!Array.isArray(iceServers)||!iceServers.length)throw new Error('TURN credentials missing iceServers');
+    const value={iceServers};turnCache={key:cacheKey,value,until:now+5*60*1000};
+    return Response.json(value,{headers:{'Cache-Control':'no-store'}});
+   }catch(err){console.warn('TURN unavailable',err.message);return Response.json(stun,{headers:{'Cache-Control':'no-store'}});}
   }
   const match=/^\/signal\/([^/]+)$/.exec(url.pathname);
   if(!match||!isCode(match[1]))return env.ASSETS?env.ASSETS.fetch(request):new Response('Not found',{status:404});
   if(!originAllowed(request,env))return new Response('Forbidden',{status:403});
   if(request.headers.get('Upgrade')?.toLowerCase()!=='websocket')return new Response('WebSocket required',{status:426});
+  const ip=request.headers.get('CF-Connecting-IP')||'unknown';
+  if(env.SIGNAL_RATE_LIMIT){
+   const verdict=await env.SIGNAL_RATE_LIMIT.limit({key:ip});
+   if(!verdict.success)return new Response('Too many connections',{status:429,headers:{'Retry-After':'60'}});
+  }
   return env.ROOMS.get(env.ROOMS.idFromName(match[1])).fetch(request);
  }
 };
@@ -58,11 +75,17 @@ export class SignalRoom{
    await this.state.storage.put('hostSecret',supplied);
    this.host=ws;ws.serializeAttachment({role:'host'});
    await this.state.storage.setAlarm(Date.now()+24*60*60*1000);
-   ws.send(JSON.stringify({type:'host_registered'}));return;
+   ws.send(JSON.stringify({type:'host_registered'}));
+   // Notify guests that were waiting on a temporarily absent host.
+   for(const peer of this.peers.values())try{peer.send(JSON.stringify({type:'host_online'}))}catch(_){}
+   return;
   }
   if(msg.type==='register_guest'){
    if(info.role)return;
-   if(!this.host)return ws.send(JSON.stringify({type:'signal_error',fatal:true,message:'房間不存在或房主已離線'}));
+   if(!this.host){
+    const saved=await this.state.storage.get('hostSecret');
+    return ws.send(JSON.stringify(saved?{type:'host_offline'}:{type:'signal_error',fatal:true,message:'房間不存在或房主已離線'}));
+   }
    if(this.peers.size>=12)return ws.send(JSON.stringify({type:'signal_error',fatal:true,message:'房間人數已滿'}));
    const id=crypto.randomUUID();this.peers.set(id,ws);ws.serializeAttachment({role:'guest',id});
    ws.send(JSON.stringify({type:'guest_registered',id}));

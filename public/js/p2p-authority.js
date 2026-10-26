@@ -12,8 +12,23 @@
       this.spectators = new Map();
       this.restartVotes = new Set();
       this.version = 0;
-      this.status = 'waiting';this.expiryTimers=new Map();this.voteTimer=null;
+      this.status = 'waiting';this.expiryTimers=new Map();this.voteTimer=null;this.onChange=null;
     }
+    exportState() {
+      return {schema:1,id:this.id,version:this.version,players:this.players,engine:{board:this.engine.board,turn:this.engine.turn,winner:this.engine.winner,lastMove:this.engine.lastMove,winningLine:this.engine.winningLine,moveHistory:this.engine.moveHistory},restartVotes:[...this.restartVotes]};
+    }
+    static restore(saved,deliver) {
+      if(!saved||saved.schema!==1||!saved.id||!saved.players?.black||!Array.isArray(saved.engine?.board)||saved.engine.board.length!==15)throw new Error('Invalid saved room');
+      const result=new GomokuAuthority(saved.id,saved.players.black.name,deliver);
+      result.version=Number.isSafeInteger(saved.version)?saved.version:0;
+      for(const role of ROLES){const old=saved.players[role];result.players[role]=old?{name:String(old.name).slice(0,20),resumeToken:old.resumeToken,peerId:role==='black'?'host':null,connected:role==='black'}:null;}
+      result.engine.loadState(saved.engine);
+      result.engine.moveHistory=Array.isArray(saved.engine.moveHistory)?saved.engine.moveHistory:[];
+      result.restartVotes.clear();result.updateStatus();
+      if(result.players.white){result.expiryTimers.set('white',setTimeout(()=>result.expire('white',null),GRACE_MS));}
+      return result;
+    }
+    changed(){this.onChange?.(this.exportState());}
     player(role) { const p = this.players[role]; return p ? {name:p.name,ready:true,connected:p.connected,reconnecting:!p.connected} : null; }
     snapshot() {
       return {roomId:this.id, gameType:'gomoku',playerCount:2,board:this.engine.board,turn:this.engine.turn,
@@ -23,6 +38,7 @@
     }
     send(peerId, type, fields={}) { this.deliver(peerId, {type,...fields,roomState:this.snapshot()}); }
     broadcast(type, fields={}) {
+      this.changed();
       for(const p of Object.values(this.players)) if(p?.connected) this.send(p.peerId,type,fields);
       for(const id of this.spectators.keys()) this.send(id,type,fields);
     }
@@ -34,7 +50,7 @@
       if(role) { const p=this.players[role]; this.clearExpiry(role);if(p.peerId!==id&&p.connected)this.spectators.delete(p.peerId);p.peerId=id;p.connected=true;resumed=true; }
       else if (!this.players.white) {role='white';this.players.white={name:String(data.name||'訪客').slice(0,20),resumeToken:token(),peerId:id,connected:true};}
       else {role='spectator';this.spectators.set(id,{name:String(data.name||'觀眾').slice(0,20)});}
-      this.updateStatus();
+      this.updateStatus();this.changed();
       this.send(id,'room_joined',{roomId:this.id,role,resumeToken:role==='spectator'?null:this.players[role].resumeToken});
       const notice={type:resumed?'player_reconnected':'player_joined',name:role==='spectator'?this.spectators.get(id).name:this.players[role].name,role,roomState:this.snapshot()};
       for(const p of Object.values(this.players))if(p?.connected&&p.peerId!==id)this.deliver(p.peerId,notice);

@@ -63,24 +63,34 @@ class PocketApp {
             this.dom.roomIdInput.placeholder='輸入 8 碼房號';this.dom.roomIdInput.autocapitalize='characters';
             // No LAN /api/rooms on a static/Worker host: hide the open-rooms panel (#open-rooms).
             (document.getElementById('open-rooms')||this.dom.openRoomsList)?.classList.add('hidden');
+            const banner=document.querySelector('.hero-badge');if(banner)banner.textContent='線上好友・跨網路對戰';
+            const intro=document.querySelector('.hero-desc');if(intro)intro.textContent='分享邀請連結，朋友用手機瀏覽器即可加入（需網路）';
+            const onlinePill=document.querySelector('.mode-pill[data-mode="online"]');if(onlinePill)onlinePill.textContent='🌐 線上 P2P 對戰';
+            const qrHelp=document.querySelector('#qr-modal .modal-card p');if(qrHelp)qrHelp.textContent='傳送邀請連結或掃描 QR Code 即可加入（需網路）';
         } else {this.fetchServerInfo();this.fetchOpenRooms();}
         this.openRoomsRefreshTimer = setInterval(() => {
             if (!this.p2pMode && !this.dom.viewLobby.classList.contains('hidden') && this.currentMode === 'online') this.fetchOpenRooms();
         }, 5000);
 
-        // P2P host closing/reloading the tab: the authority lives in this page and cannot be restored,
-        // so end the room explicitly (room_ended over DataChannels + end_room to signaling) instead of
-        // leaving guests to time out.
+        // Reload and mobile page eviction are not explicit departures. The host snapshot remains
+        // in localStorage; only the Leave button sends end_room. On pagehide the host only tells
+        // guests it stepped away, so they show a waiting message at once (ended after ~75 s if the
+        // host does not come back) instead of silently stalling.
         window.addEventListener('pagehide', () => {
-            if (this.p2pMode && this.ws?.isHost && this.roomId) try { this.ws.send(JSON.stringify({ type: 'leave_room' })); } catch (e) { /* page is going away */ }
+            if (this.p2pMode && this.ws?.isHost && this.roomId) try { this.ws.pause?.(); } catch (e) { /* page is going away */ }
         });
-
         const invitedRoomId = new URLSearchParams(window.location.search).get('room');
         if ((this.p2pMode ? /^[A-Z2-9]{8}$/ : /^\d{4}$/).test((invitedRoomId || '').toUpperCase())) {
             this.dom.roomIdInput.value = this.p2pMode ? invitedRoomId.toUpperCase() : invitedRoomId;
             // A QR invite is meant to be one tap: use the saved guest name and
             // join as soon as this lobby has initialised.
-            setTimeout(() => this.joinOnlineRoom(), 0);
+            setTimeout(() => {
+                if(this.p2pMode && this.getRoomSession(invitedRoomId.toUpperCase())?.role==='black'){
+                    this.connectWS();if(this.ws?.restore(invitedRoomId.toUpperCase()))return;
+                    this.ws?.close();this.ws=null;
+                }
+                this.joinOnlineRoom();
+            }, 0);
         }
     }
 
@@ -512,7 +522,7 @@ class PocketApp {
         if (type === 'room_ended') {
             this.stopReconnect();
             this.shouldReconnect=false;this.intentionalDisconnect=true;
-            this.showToast(data.message || '房間已結束', 8000);
+            this.showToast(data.message || '房主已離線，房間已結束', 8000);
             this.ws?.close();this.ws=null;this.roomId=null;this.myRole=null;
             this.setRoomParam(null);
             this.dom.viewGame.classList.add('hidden');this.dom.viewLobby.classList.remove('hidden');
@@ -524,6 +534,8 @@ class PocketApp {
             this.myRole = data.role;
             this.saveRoomSession(data.roomId, data.resumeToken, data.role, data.roomState.gameType);
             this.shouldReconnect = true;
+            // P2P host: keep ?room= so a reload restores the saved host snapshot.
+            if (this.p2pMode) this.setRoomParam(data.roomId);
             this.applyOnlineRoomState(data.roomState);
             if (this.selectedGame === 'carcassonne') {
                 this.openCarcassonneRoom(data.roomId, 'online', data.roomState.playerCount, data.role);
@@ -638,7 +650,9 @@ class PocketApp {
         }
 
         else if (type === 'error') {
-            this.showToast(`❌ ${data.message}`);
+            // P2P waiting notices already carry ⚠️ and should stay visible longer.
+            const warn = String(data.message || '').startsWith('⚠️');
+            this.showToast(warn ? data.message : `❌ ${data.message}`, warn ? 10000 : undefined);
             if (this.currentMode === 'online' && this.ws?.readyState === WebSocket.OPEN) {
                 this.ws.send(JSON.stringify({ type: 'sync_request' }));
             }

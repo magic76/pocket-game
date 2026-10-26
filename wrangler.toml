@@ -18,3 +18,12 @@ new_sqlite_classes = ["SignalRoom"]
 directory = "./public"
 binding = "ASSETS"
 run_worker_first = true
+
+# Rate limit WebSocket upgrade attempts per IP; enforce separately in Worker before DO dispatch.
+[[ratelimits]]
+name = "SIGNAL_RATE_LIMIT"
+namespace_id = "1001"
+
+[ratelimits.simple]
+limit = 30
+period = 60
