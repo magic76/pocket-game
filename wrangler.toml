@@ -1,6 +1,10 @@
 name = "pocket-game-signal"
 main = "worker/index.js"
-compatibility_date = "2026-10-01"
+compatibility_date = "2026-05-03"
+
+[vars]
+# Replace with the frontend origin; comma-separated for more than one origin.
+ALLOWED_ORIGINS = "https://games.3sssi.com,http://localhost:8080,http://127.0.0.1:8080"
 
 [[durable_objects.bindings]]
 name = "ROOMS"
@@ -9,3 +13,8 @@ class_name = "SignalRoom"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["SignalRoom"]
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = true

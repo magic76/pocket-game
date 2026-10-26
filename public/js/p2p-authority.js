@@ -1,6 +1,7 @@
 /* Browser host authority — phase 1: Gomoku. Existing GomokuEngine is reused. */
 (function (root) {
   const ROLES = ['black', 'white'];
+  const GRACE_MS=5*60*1000, VOTE_MS=30*1000;
   const token = () => Array.from(crypto.getRandomValues(new Uint8Array(24)), b => b.toString(16).padStart(2, '0')).join('');
   class GomokuAuthority {
     constructor(roomId, hostName, deliver) {
@@ -11,7 +12,7 @@
       this.spectators = new Map();
       this.restartVotes = new Set();
       this.version = 0;
-      this.status = 'waiting';
+      this.status = 'waiting';this.expiryTimers=new Map();this.voteTimer=null;
     }
     player(role) { const p = this.players[role]; return p ? {name:p.name,ready:true,connected:p.connected,reconnecting:!p.connected} : null; }
     snapshot() {
@@ -30,18 +31,23 @@
     join(id, data) {
       let role = null, resumed = false;
       if(typeof data.resumeToken==='string') role=ROLES.find(r=>this.players[r]?.resumeToken===data.resumeToken) || null;
-      if(role) { const p=this.players[role]; p.peerId=id; p.connected=true; resumed=true; }
+      if(role) { const p=this.players[role]; this.clearExpiry(role);if(p.peerId!==id&&p.connected)this.spectators.delete(p.peerId);p.peerId=id;p.connected=true;resumed=true; }
       else if (!this.players.white) {role='white';this.players.white={name:String(data.name||'訪客').slice(0,20),resumeToken:token(),peerId:id,connected:true};}
       else {role='spectator';this.spectators.set(id,{name:String(data.name||'觀眾').slice(0,20)});}
       this.updateStatus();
       this.send(id,'room_joined',{roomId:this.id,role,resumeToken:role==='spectator'?null:this.players[role].resumeToken});
-      this.broadcast(resumed?'player_reconnected':'player_joined',{name:role==='spectator'?this.spectators.get(id).name:this.players[role].name,role});
+      const notice={type:resumed?'player_reconnected':'player_joined',name:role==='spectator'?this.spectators.get(id).name:this.players[role].name,role,roomState:this.snapshot()};
+      for(const p of Object.values(this.players))if(p?.connected&&p.peerId!==id)this.deliver(p.peerId,notice);
+      for(const spectator of this.spectators.keys())if(spectator!==id)this.deliver(spectator,notice);
     }
     roleOf(id) { return ROLES.find(r=>this.players[r]?.peerId===id && this.players[r].connected) || (this.spectators.has(id)?'spectator':null); }
+    clearExpiry(role){const t=this.expiryTimers.get(role);if(t)clearTimeout(t);this.expiryTimers.delete(role);}
+    expire(role,peerId){const p=this.players[role];if(!p||p.connected||p.peerId!==peerId)return;this.players[role]=null;this.updateStatus();this.broadcast('player_left',{role,name:p.name,reconnecting:false});}
+    dispose(){for(const t of this.expiryTimers.values())clearTimeout(t);this.expiryTimers.clear();clearTimeout(this.voteTimer);}
     disconnect(id, intentional=false) {
       const role=this.roleOf(id); if(!role)return;
       if(role==='spectator')this.spectators.delete(id);
-      else if(role==='white') { if(intentional)this.players.white=null;else this.players.white.connected=false; }
+      else if(role==='white') {this.clearExpiry('white');if(intentional)this.players.white=null;else {this.players.white.connected=false;this.expiryTimers.set('white',setTimeout(()=>this.expire('white',id),GRACE_MS));} }
       else if(role==='black') { this.players.black.connected=false; }
       this.updateStatus(); this.broadcast('player_left',{role,name:role==='spectator'?'觀眾':this.players[role]?.name||'',reconnecting:!intentional});
     }
@@ -54,8 +60,9 @@
       if(data.type==='reaction') {if(role!=='spectator')this.broadcast('reaction',{emoji:String(data.emoji||'').slice(0,8),from:this.players[role].name,role});return;}
       if(data.type==='restart') {
         if(role==='spectator')return;
+        if(!this.restartVotes.size){clearTimeout(this.voteTimer);this.voteTimer=setTimeout(()=>{if(this.restartVotes.size){this.restartVotes.clear();this.broadcast('restart_vote_expired');}},VOTE_MS);}
         this.restartVotes.add(role);
-        if(this.restartVotes.size===2 && this.players.white?.connected && this.players.black.connected){this.engine.reset();this.version++;this.restartVotes.clear();this.updateStatus();this.broadcast('game_restarted',{by:this.players[role].name});}
+        if(this.restartVotes.size===2 && this.players.white?.connected && this.players.black.connected){this.engine.reset();this.version++;this.restartVotes.clear();clearTimeout(this.voteTimer);this.updateStatus();this.broadcast('game_restarted',{by:this.players[role].name});}
         else this.broadcast('restart_requested',{by:this.players[role].name,neededVotes:2});return;
       }
       if(data.type!=='move')return;

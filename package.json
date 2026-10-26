@@ -6,7 +6,9 @@
   "scripts": {
     "start": "./start.sh",
     "stop": "./stop.sh",
-    "test": "node --check server.js && node test/core-rules.test.js && node test/multiplayer.test.js && node test/p2p-authority.test.cjs"
+    "test": "node --check server.js && node test/core-rules.test.js && node test/multiplayer.test.js && node test/p2p-authority.test.cjs",
+    "p2p:dev": "npx --yes wrangler@4.86.0 dev",
+    "p2p:deploy": "npx --yes wrangler@4.86.0 deploy"
   },
   "keywords": [],
   "author": "",
