@@ -77,11 +77,12 @@ class PocketApp {
         // guests it stepped away, so they show a waiting message at once (ended after ~75 s if the
         // host does not come back) instead of silently stalling.
         window.addEventListener('pagehide', () => {
-            if (this.p2pMode && this.ws?.isHost && this.roomId) try { this.ws.pause?.(); } catch (e) { /* page is going away */ }
+            if (this.p2pMode && this.ws?.isHost && this.roomId) try { this.ws.pause?.(); this.ws.unlock?.(); } catch (e) { /* page is going away */ }
         });
         const invitedRoomId = new URLSearchParams(window.location.search).get('room');
         if ((this.p2pMode ? /^[A-Z2-9]{8}$/ : /^\d{4}$/).test((invitedRoomId || '').toUpperCase())) {
             this.dom.roomIdInput.value = this.p2pMode ? invitedRoomId.toUpperCase() : invitedRoomId;
+            if (this.p2pMode) {try {const cached=JSON.parse(localStorage.getItem('pocket_p2p_view_'+invitedRoomId.toUpperCase())||'null');if(cached?.state?.gameType==='gomoku' && Date.now()-cached.at<24*3600*1000){this.roomId=invitedRoomId.toUpperCase();this.applyOnlineRoomState({...cached.state,status:'reconnecting'});this.enterGameView();this.renderOnlineBoard();this.roomId=null;}} catch (_) {}}
             // A QR invite is meant to be one tap: use the saved guest name and
             // join as soon as this lobby has initialised.
             setTimeout(() => {
@@ -285,6 +286,7 @@ class PocketApp {
     applyOnlineRoomState(roomState) {
         if (!roomState) return;
         this.roomState = roomState;
+        if (this.p2pMode && this.roomId) try { localStorage.setItem(`pocket_p2p_view_${this.roomId}`, JSON.stringify({state:roomState,at:Date.now()})); } catch (_) {}
         this.selectedGame = roomState.gameType || this.selectedGame;
         this.configureEngineForRoom(roomState);
         if (this.selectedGame !== 'carcassonne' && this.activeEngine) this.activeEngine.loadState(roomState);
@@ -407,10 +409,10 @@ class PocketApp {
             return;
         }
         if (this.p2pMode) {
-            if (!window.PocketP2PSocket || !window.POCKET_SIGNAL_URL) {this.showToast('尚未設定 P2P 信令');return;}
+            if (!window.PocketP2PSocket || !window.Peer) {this.showToast('尚未載入 PeerJS');return;}
             if(this.ws && this.ws.readyState !== WebSocket.CLOSED)return;
             let socket;
-            socket=new PocketP2PSocket(window.POCKET_SIGNAL_URL,
+            socket=new PocketP2PSocket(null,
                 event=>{if(this.ws===socket)this.handleServerMessage(JSON.parse(event.data));},
                 ()=>{if(this.ws===socket)this.ws=null;},
                 ()=>{if(this.ws===socket){this.reconnectAttempts=0;onOpen?.();}}
@@ -523,7 +525,7 @@ class PocketApp {
             this.stopReconnect();
             this.shouldReconnect=false;this.intentionalDisconnect=true;
             this.showToast(data.message || '房主已離線，房間已結束', 8000);
-            this.ws?.close();this.ws=null;this.roomId=null;this.myRole=null;
+            this.ws?.close();this.ws=null;try{if(this.roomId)localStorage.removeItem('pocket_p2p_view_'+this.roomId);}catch(e){}this.roomId=null;this.myRole=null;
             this.setRoomParam(null);
             this.dom.viewGame.classList.add('hidden');this.dom.viewLobby.classList.remove('hidden');
             return;
@@ -1083,7 +1085,7 @@ class PocketApp {
         }
         this.ws = null;
         this.clearRoomSession(leavingRoomId);
-        if (this.p2pMode) this.setRoomParam(null);
+        if (this.p2pMode) { this.setRoomParam(null); try { localStorage.removeItem(`pocket_p2p_view_${leavingRoomId}`); } catch (e) {} }
         this.roomId = null;
         this.myRole = null;
         this.selectedSquare = null;

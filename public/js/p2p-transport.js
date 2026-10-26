@@ -1,190 +1,63 @@
-/* Pocket Game signaling is disposable; RTC channels are not. */
-(function(root){
-'use strict';
-const OPEN=1, CONNECTING=0, CLOSED=3;
-const code=()=>Array.from(crypto.getRandomValues(new Uint8Array(8)),v=>'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[v%32]).join('');
-const secret=()=>Array.from(crypto.getRandomValues(new Uint8Array(32)),v=>v.toString(16).padStart(2,'0')).join('');
-const sleepTimeout=18000;
-class P2PSocket{
- constructor(base,onmessage,onclose,onopen){
-  this.base=base;this.onmessage=onmessage;this.onclose=onclose;this.onopen=onopen;
-  this.readyState=CONNECTING;this.peers=new Map();this.pending=[];this.isHost=false;
-  this.roomId=null;this.authority=null;this.signaling=null;this.generation=0;
-  this.attempt=0;this.stopped=false;this.hostSecret=null;this.signalTimer=null;this.connectionTimer=null;this.offlineSince=0;this.offlineTimer=null;this.making=new Map();
- }
+/* Pocket Game PeerJS DataConnection transport. Host browser retains authority. */
+(function(root){'use strict';
+const CONNECTING=0, OPEN=1, CLOSED=3, WAIT=75000, FRESH_WAIT=25000, RETAIN=24*3600*1000;
+const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const randomCode=()=>Array.from(crypto.getRandomValues(new Uint8Array(8)),v=>alphabet[v%alphabet.length]).join('');
+const hostId=id=>'pocketgame-v1-'+id;
+const hostKey=id=>'pocket_p2p_host_'+id;
+const makeGuestId=()=> 'pocketgame-v1-guest-'+Array.from(crypto.getRandomValues(new Uint8Array(12)),v=>v.toString(16).padStart(2,'0')).join('');
+function purge(){try{for(let i=localStorage.length-1;i>=0;i--){const k=localStorage.key(i);if(!k?.startsWith('pocket_p2p_host_')&&!k?.startsWith('pocket_p2p_view_'))continue;const v=JSON.parse(localStorage.getItem(k));const at=v?.savedAt||v?.at;if(!at||Date.now()-at>RETAIN||v.ended)localStorage.removeItem(k);}}catch(_){}}
+class P2PSocket {
+ constructor(_base,onmessage,onclose,onopen){this.onmessage=onmessage;this.onclose=onclose;this.onopen=onopen;this.readyState=CONNECTING;this.peers=new Map();this.pending=[];this.roomId=null;this.authority=null;this.isHost=false;this.stopped=false;this.hostAnnounced=false;this.offlineSince=0;this.retryTimer=null;this.deadlineTimer=null;this.heartbeat=null;this.peer=null;this.generation=0;this.creationAttempts=0;this.recovering=false;this.tabId=Math.random().toString(36).slice(2);purge();}
  emit(msg){this.onmessage?.({data:JSON.stringify(msg)});}
  error(message){this.emit({type:'error',message});}
- async iceConfig(){
-  try{const endpoint=root.POCKET_TURN_ENDPOINT||'/turn-credentials'; const res=await fetch(endpoint,{cache:'no-store'});
-   if(res.ok){const data=await res.json();if(Array.isArray(data.iceServers)&&data.iceServers.length)return {iceServers:data.iceServers};}
-  }catch(_){}return {iceServers:[{urls:'stun:stun.l.google.com:19302'}]};
+ peerOptions(){const c=root.POCKET_PEER_CONFIG||{};return {...c,config:{iceServers:[...(root.POCKET_ICE_SERVERS||[{urls:'stun:stun.l.google.com:19302'}]),...(root.POCKET_TURN_SERVERS||[])]}};}
+ acquireHostLock(id){const key='pocket_p2p_active_'+id;try{const old=JSON.parse(localStorage.getItem(key)||'null');if(old&&Date.now()-old.time<12000&&old.id!==this.tabId){this.error('⚠️ 另一個分頁正在主持這個房間');return false;}localStorage.setItem(key,JSON.stringify({id:this.tabId,time:Date.now()}));this.heartbeat=setInterval(()=>localStorage.setItem(key,JSON.stringify({id:this.tabId,time:Date.now()})),4000);return true;}catch(_){return true;}}
+ unlock(){clearInterval(this.heartbeat);try{const k='pocket_p2p_active_'+this.roomId,v=JSON.parse(localStorage.getItem(k)||'null');if(v?.id===this.tabId)localStorage.removeItem(k);}catch(_){}}
+ create(name){if(this.roomId||this.stopped)return;this.isHost=true;this.hostName=String(name||'房主');this.startNewHost();}
+ startNewHost(){if(this.roomId)try{localStorage.removeItem(hostKey(this.roomId))}catch(_){}this.roomId=randomCode();this.authority=new root.PocketGomokuAuthority(this.roomId,this.hostName,(to,msg)=>this.deliver(to,msg));this.persistHost();this.startPeer();}
+ persistHost(){if(!this.isHost||!this.authority)return;this.authority.onChange=()=>this.saveHost();this.saveHost();}
+ saveHost(){if(!this.isHost||!this.authority)return;try{localStorage.setItem(hostKey(this.roomId),JSON.stringify({room:this.authority.exportState(),savedAt:Date.now()}));}catch(_){}}
+ restore(id){if(this.roomId||this.stopped)return false;id=String(id).toUpperCase();try{const saved=JSON.parse(localStorage.getItem(hostKey(id))||'null');if(!saved||saved.room?.id!==id||saved.ended||Date.now()-saved.savedAt>RETAIN){localStorage.removeItem(hostKey(id));return false;}if(!this.acquireHostLock(id))return false;this.roomId=id;this.isHost=true;this.recovering=true;this.authority=root.PocketGomokuAuthority.restore(saved.room,(to,msg)=>this.deliver(to,msg));this.persistHost();this.startPeer();return true;}catch(e){console.warn('Host restore failed',e);return false;}}
+ clearHost(){try{localStorage.removeItem(hostKey(this.roomId));}catch(_){}this.unlock();}
+ join(id){if(this.roomId||this.stopped)return;id=String(id||'').toUpperCase().trim();if(!/^[A-Z2-9]{8}$/.test(id)){this.error('房間號碼需為 8 位英數字');return;}this.roomId=id;this.isHost=false;this.startPeer();}
+ startPeer(){if(this.stopped)return;const generation=++this.generation;this.peer?.destroy?.();this.peer=null;if(!root.Peer){this.error('缺少本地 PeerJS 程式庫，請檢查 vendor/peerjs.min.js');return;}
+  const id=this.isHost?hostId(this.roomId):makeGuestId();const p=new root.Peer(id,this.peerOptions());this.peer=p;
+  p.on('open',()=>{if(generation!==this.generation||this.stopped)return;this.creationAttempts=0;if(this.isHost){this.hostAnnounced=true;this.readyState=OPEN;this.onopen?.();this.emit({type:'room_created',roomId:this.roomId,role:'black',resumeToken:this.authority.players.black.resumeToken,roomState:this.authority.snapshot()});}
+   else this.connectGuest();});
+  p.on('connection',conn=>{if(!this.isHost||conn.peer===hostId(this.roomId)||!String(conn.peer).startsWith('pocketgame-v1-guest-')){conn.close();return;}this.bind(conn.peer,conn);});
+  p.on('disconnected',()=>{if(this.stopped||generation!==this.generation||p.destroyed)return;this.error('⚠️ 信令暫時離線，既有對戰連線不受影響');this.signalReconnect(p,generation);});
+  p.on('error',err=>{if(generation!==this.generation||this.stopped)return;const t=err?.type||'';
+    if(this.isHost&&t==='unavailable-id'){if(this.recovering){this.error('⚠️ 舊房號尚未釋放，正在等待恢復…');this.reopenPeer(3000);}else if(++this.creationAttempts<8){this.authority?.dispose?.();this.startNewHost();}else this.error('建立房間失敗，請稍後再試');return;}
+    if(!this.isHost&&(t==='peer-unavailable'||t==='network'||t==='server-error')){this.awaitHost();return;}
+    this.error('⚠️ PeerJS 信令錯誤：'+String(t||err?.message||'unknown'));});
+  p.on('close',()=>{if(this.stopped||generation!==this.generation)return;if(this.isHost)this.reopenPeer(1500);else this.awaitHost();});
  }
- create(name){
-  if(this.roomId||this.stopped)return;
-  const id=code();this.roomId=id;this.isHost=true;this.hostSecret=secret();
-  this.authority=new root.PocketGomokuAuthority(id,String(name||'房主'),(to,msg)=>this.deliver(to,msg));
-  this.persistHost();this.connectSignal();
+ signalReconnect(p,g){if(this.stopped||this.generation!==g)return;clearTimeout(this.signalTimer);this.signalTimer=setTimeout(()=>{if(this.stopped||this.generation!==g)return;try{if(p.disconnected&&!p.destroyed)p.reconnect();}catch(_){this.reopenPeer(1500);}},1200);}
+ reopenPeer(delay){if(this.stopped)return;clearTimeout(this.retryTimer);this.retryTimer=setTimeout(()=>{if(this.stopped)return;if(this.isHost&&this.peers.size&&[...this.peers.values()].some(x=>x.open)){this.signalReconnect(this.peer,this.generation);return;}this.startPeer();},delay);}
+ connectGuest(){if(this.stopped||this.isHost||[...this.peers.values()].some(x=>x.open))return;const conn=this.peer?.connect(hostId(this.roomId),{reliable:true,serialization:'json'});if(conn)this.bind('host',conn);this.connectTimeout=setTimeout(()=>{if(!this.stopped&&!this.peers.get('host')?.open){this.disposePeer('host');this.awaitHost();}},18000);}
+ bind(id,conn){const old=this.peers.get(id);if(old&&old!==conn)this.disposePeer(id);this.peers.set(id,conn);
+  conn.on('open',()=>{if(this.stopped||this.peers.get(id)!==conn)return;clearTimeout(this.connectTimeout);if(this.isHost){return;}this.everConnected=true;this.hostPaused=false;this.clearOffline();this.readyState=OPEN;this.onopen?.();for(const message of this.pending.splice(0))this.send(message);});
+  conn.on('data',m=>{if(this.stopped||this.peers.get(id)!==conn)return;let data=m;if(typeof m==='string'){try{data=JSON.parse(m)}catch{return;}}if(!data||typeof data!=='object')return;if(this.isHost)this.authority?.receive(id,data);else if(data.type==='host_paused'){this.hostPaused=true;this.awaitHost(true);}else if(data.type==='room_ended'){this.ended(data.message||'房主已離開，房間已結束');}else this.emit(data);});
+  conn.on('close',()=>this.connectionLost(id,conn));conn.on('error',()=>this.connectionLost(id,conn));
+  const inspect=()=>{if(this.stopped||this.peers.get(id)!==conn)return;const s=conn.peerConnection?.connectionState;if(s==='failed'||s==='closed')this.connectionLost(id,conn);else if(s==='disconnected'){if(!this.isHost)this.error('⚠️ 與房主連線不穩，等待恢復…');clearTimeout(conn._disconnectTimer);conn._disconnectTimer=setTimeout(()=>{if(conn.peerConnection?.connectionState==='disconnected')this.connectionLost(id,conn);},12000);}else if(s==='connected')clearTimeout(conn._disconnectTimer);};
+  if(conn.peerConnection)conn.peerConnection.addEventListener('connectionstatechange',inspect);
  }
- persistHost(){
-  if(!this.isHost||!this.authority)return;
-  try{localStorage.setItem('pocket_p2p_host_'+this.roomId,JSON.stringify({secret:this.hostSecret,room:this.authority.exportState(),savedAt:Date.now()}));}catch(e){console.warn('P2P snapshot unavailable',e)}
-  this.authority.onChange=()=>this.persistHost();
+ connectionLost(id,conn){if(this.stopped||this.peers.get(id)!==conn)return;this.disposePeer(id,conn);if(this.isHost)this.authority?.disconnect(id);else {this.readyState=CONNECTING;this.awaitHost();}}
+ disposePeer(id,conn=this.peers.get(id)){if(!conn||this.peers.get(id)!==conn)return;this.peers.delete(id);clearTimeout(conn._disconnectTimer);try{conn.close()}catch(_){}}
+ awaitHost(paused=false){if(this.stopped||this.isHost)return;paused=paused||this.hostPaused;if(!this.offlineSince){this.offlineSince=Date.now();
+  // A guest that never reached this host and holds no saved seat is most likely using a wrong/ended code: give up sooner.
+  let known=this.everConnected;try{known=known||!!localStorage.getItem('pocket_room_session_'+this.roomId);}catch(_){}
+  this.deadlineTimer=setTimeout(()=>this.ended(known?'房主已離線，房間已結束':'找不到房間，或房主目前不在線'),known?WAIT:FRESH_WAIT);}this.error(paused?'⚠️ 房主離開了頁面，等待返回中（約 75 秒後結束房間）…':'⚠️ 與房主連線不穩，等待恢復…');clearTimeout(this.retryTimer);this.retryTimer=setTimeout(()=>{if(this.stopped||this.isHost)return;if(!this.peer||this.peer.destroyed)this.startPeer();else if(this.peer.disconnected)this.signalReconnect(this.peer,this.generation);else if(!this.peers.get('host')?.open){this.disposePeer('host');this.connectGuest();}},Math.min(2000+Math.floor((Date.now()-this.offlineSince)/5000)*500,8000));}
+ clearOffline(){this.offlineSince=0;clearTimeout(this.deadlineTimer);clearTimeout(this.retryTimer);this.deadlineTimer=this.retryTimer=null;}
+ deliver(to,msg){if(to==='host')this.emit(msg);else{const c=this.peers.get(to);if(c?.open)c.send(msg);}}
+ send(raw){if(this.stopped)return;let msg;try{msg=JSON.parse(raw)}catch{return;}if(msg.type==='create_room'){this.create(msg.name);return;}
+  if(this.isHost){if(msg.type==='leave_room'){for(const c of this.peers.values())if(c.open)c.send({type:'room_ended',message:'房主已離開，房間已結束'});this.clearHost();}this.authority?.receive('host',msg);return;}
+  const c=this.peers.get('host');if(c?.open)c.send(msg);else if(this.pending.length<10&&!this.pending.some(x=>x===raw))this.pending.push(raw);
  }
- restore(id){
-  if(this.roomId||this.stopped)return false;
-  try{
-   const raw=localStorage.getItem('pocket_p2p_host_'+id);if(!raw)return false;
-   const saved=JSON.parse(raw);if(saved.room?.id!==id||!/^[a-f0-9]{64}$/.test(saved.secret))return false;
-   this.roomId=id;this.isHost=true;this.hostSecret=saved.secret;
-   this.authority=root.PocketGomokuAuthority.restore(saved.room,(to,msg)=>this.deliver(to,msg));
-   this.persistHost();this.connectSignal();return true;
-  }catch(e){console.warn('Could not recover P2P host',e);return false;}
- }
- clearHost(){try{localStorage.removeItem('pocket_p2p_host_'+this.roomId)}catch(_){}}
-  join(id){
-  if(this.roomId||this.stopped)return;
-  id=String(id||'').trim().toUpperCase();if(!/^[A-Z2-9]{8}$/.test(id)){this.error('房間號碼需為 8 位英數字');return;}
-  this.roomId=id;this.isHost=false;this.connectSignal();
- }
- connectSignal(){
-  if(this.stopped||!this.roomId||this.signaling?.readyState===CONNECTING||this.signaling?.readyState===OPEN)return;
-  const generation=++this.generation;
-  let url;
-  try{const base=this.base.replace(/\/$/,'');url=`${base}/signal/${this.roomId}`;}catch(e){this.error('信令網址無效');return;}
-  const ws=new WebSocket(url);this.signaling=ws;
-  ws.onopen=()=>{if(this.generation!==generation)return;this.attempt=0;};
-  ws.onmessage=async(e)=>{
-   if(this.generation!==generation||this.stopped)return;
-   let m;try{m=JSON.parse(e.data)}catch{return}
-   try{
-    // Guest whose DataChannel is still open (signaling-only reconnect): do not re-register. A new
-    // register_guest makes the host send a fresh offer, which renegotiates and breaks the live channel.
-    if(m.type==='signal_ready'&&!this.isHost&&this.peers.get('host')?.channel?.readyState==='open')return;
-    if(m.type==='signal_ready')this.sendSignalRaw({type:this.isHost?'register_host':'register_guest',...(this.isHost?{secret:this.hostSecret}:{})});
-    if(m.type==='host_registered'){
-     if(!this.hostAnnounced){this.hostAnnounced=true;this.readyState=OPEN;this.onopen?.();this.emit({type:'room_created',roomId:this.roomId,role:'black',resumeToken:this.authority.players.black.resumeToken,roomState:this.authority.snapshot()});}
-    }
-    if(m.type==='guest_registered'){this.peerId=m.id;this.clearOffline();}
-    if(m.type==='host_offline'&&!this.isHost){this.awaitHost();}
-    if(m.type==='host_online'&&!this.isHost){this.retryGuestRegister();}
-    if(m.type==='guest_arrived'&&this.isHost){await this.offer(m.id);}
-    if(m.type==='relay')await this.processSignal(m.from,m.payload);
-    if(m.type==='host_gone'&&!this.isHost){this.ended('房主已離開，房間已結束');}
-    if(m.type==='signal_error'){
-     if(m.fatal)this.ended(m.message||'房間已結束');else this.error(m.message||'信令暫時失敗');
-    }
-   }catch(err){console.warn('P2P signaling message failure',err);}
-  };
-  ws.onclose=()=>{if(this.generation!==generation||this.stopped)return;this.signaling=null;
-   // Existing RTC DataChannels remain alive. Signal connection can be re-registered.
-   clearTimeout(this.signalTimer);
-   this.signalTimer=setTimeout(()=>this.connectSignal(),Math.min(1000*2**Math.min(this.attempt++,5),12000));
-  };
-  ws.onerror=()=>{};
- }
- clearOffline(){this.offlineSince=0;clearTimeout(this.offlineTimer);this.offlineTimer=null;}
- awaitHost(){
-  if(this.stopped||this.isHost)return;
-  if(!this.offlineSince)this.offlineSince=Date.now();
-  this.error('⚠️ 與房主連線不穩，等待恢復…');
-  if(Date.now()-this.offlineSince>75000){this.ended('房主已離線，房間已結束');return;}
-  clearTimeout(this.offlineTimer);
-  this.offlineTimer=setTimeout(()=>this.retryGuestRegister(),Math.min(1500+this.attempt++*750,8000));
- }
- retryGuestRegister(){
-  if(this.stopped||this.isHost||this.peers.get('host')?.channel?.readyState==='open'){this.clearOffline();return;}
-  if(this.offlineSince&&Date.now()-this.offlineSince>75000){this.ended('房主已離線，房間已結束');return;}
-  if(this.signaling?.readyState===OPEN){const socket=this.signaling;socket.close();}else if(!this.signaling)this.connectSignal();
-  else this.connectSignal();
- }
- sendSignalRaw(m){if(this.signaling?.readyState===OPEN)this.signaling.send(JSON.stringify(m));}
- sendSignal(to,payload){this.sendSignalRaw({type:'relay',to,payload});}
- async makePeer(id){
-  let old=this.peers.get(id);if(old)this.disposePeer(id,old);
-  const ice=await this.iceConfig();
-  if(this.stopped)return null;
-  const pc=new RTCPeerConnection(ice),peer={pc,channel:null,candidates:[],disconnectedTimer:null,connectTimer:null};
-  this.peers.set(id,peer);
-  pc.onicecandidate=e=>{if(e.candidate)this.sendSignal(id,{candidate:e.candidate.toJSON()});};
-  pc.ondatachannel=e=>this.bindChannel(id,e.channel);
-  pc.onconnectionstatechange=()=>{
-   if(this.peers.get(id)!==peer)return;
-   const state=pc.connectionState;
-   if(state==='connected'){clearTimeout(peer.disconnectedTimer);clearTimeout(peer.connectTimer);if(!this.isHost)this.clearOffline();}
-   if(state==='disconnected'){
-    if(!this.isHost)this.error('⚠️ 與房主連線不穩，等待恢復…');
-    clearTimeout(peer.disconnectedTimer);
-    peer.disconnectedTimer=setTimeout(()=>{if(pc.connectionState==='disconnected')this.markDisconnected(id);},12000);
-   }
-   if(state==='failed'||state==='closed')this.markDisconnected(id);
-  };
-  peer.connectTimer=setTimeout(()=>{if(pc.connectionState!=='connected'){
-   if(!this.isHost)this.error('P2P 連線逾時，請換個網路重試，或啟用 TURN 中繼');
-   this.markDisconnected(id);
-  }},sleepTimeout);
-  return peer;
- }
- markDisconnected(id){
-  const peer=this.peers.get(id);if(!peer)return;
-  // ICE 'failed' means the peer is gone even if the SCTP channel has not noticed yet.
-  if(peer.channel?.readyState==='open'&&peer.pc.connectionState!=='failed')return;
-  if(this.isHost){this.authority?.disconnect(id);this.disposePeer(id,peer);}
-  else if(!this.stopped){this.awaitHost();this.readyState=CONNECTING;this.error('與房主的對戰連線中斷，正在嘗試恢復');
-   // signaling connection may still be open; new guest registration yields a new offer
-   this.reconnectGuest();}
- }
- reconnectGuest(){
-  if(this.stopped||this.isHost)return;
-  for(const [id,peer] of [...this.peers])this.disposePeer(id,peer);
-  this.peers.clear();this.readyState=CONNECTING;
-  if(this.signaling){const s=this.signaling;this.generation++;this.signaling=null;s.close();}
-  clearTimeout(this.signalTimer);this.signalTimer=setTimeout(()=>this.connectSignal(),800);
- }
- bindChannel(id,ch){
-  const peer=this.peers.get(id);if(!peer)return;peer.channel=ch;
-  ch.onopen=()=>{if(this.stopped)return;
-   clearTimeout(peer.connectTimer);clearTimeout(peer.disconnectedTimer);
-   if(!this.isHost){this.clearOffline();this.readyState=OPEN;this.onopen?.();this.pending.splice(0).forEach(m=>this.send(m));}
-  };
-  ch.onmessage=e=>{let msg;try{msg=JSON.parse(e.data)}catch{return}
-   if(!this.isHost&&msg?.type==='host_paused'){if(!this.offlineSince)this.offlineSince=Date.now();this.error('⚠️ 房主離開了頁面，等待返回中（約 75 秒後結束房間）…');return;}
-   if(this.isHost)this.authority?.receive(id,msg);else this.emit(msg);
-  };
-  ch.onclose=()=>{if(this.stopped||this.peers.get(id)!==peer)return;this.disposePeer(id,peer);if(this.isHost)this.authority?.disconnect(id);else {this.awaitHost();this.reconnectGuest();}};
- }
- disposePeer(id,peer){
-  if(!peer||this.peers.get(id)!==peer)return;
-  this.peers.delete(id);clearTimeout(peer.connectTimer);clearTimeout(peer.disconnectedTimer);
-  try{peer.channel?.close()}catch(_){}try{peer.pc.close()}catch(_){}
- }
- async offer(id){const p=await this.makePeer(id);if(!p)return;
-  this.bindChannel(id,p.pc.createDataChannel('game',{ordered:true}));
-  await p.pc.setLocalDescription(await p.pc.createOffer());this.sendSignal(id,{description:p.pc.localDescription.toJSON()});
- }
- async processSignal(id,payload){
-  if(!payload||typeof payload!=='object')return;
-  // makePeer awaits /turn-credentials; offer + ICE candidates arrive back-to-back, so share one pending
-  // peer per id instead of racing two RTCPeerConnections (the orphan one then timed out after 18 s).
-  let p=this.peers.get(id);
-  if(!p){this.making??=new Map();if(!this.making.has(id))this.making.set(id,this.makePeer(id).finally(()=>this.making.delete(id)));p=await this.making.get(id);}
-  if(!p)return;
-  if(payload.description){await p.pc.setRemoteDescription(payload.description);
-   if(payload.description.type==='offer'){await p.pc.setLocalDescription(await p.pc.createAnswer());this.sendSignal(id,{description:p.pc.localDescription.toJSON()});}}
-  if(payload.candidate){if(!p.pc.remoteDescription)p.candidates.push(payload.candidate);else try{await p.pc.addIceCandidate(payload.candidate)}catch(e){console.warn('ICE candidate error',e)}}
-  if(p.pc.remoteDescription)for(const c of p.candidates.splice(0))try{await p.pc.addIceCandidate(c)}catch(e){console.warn('ICE candidate error',e)}
- }
- deliver(to,msg){if(to==='host')this.emit(msg);else {const ch=this.peers.get(to)?.channel;if(ch?.readyState==='open')ch.send(JSON.stringify(msg));}}
- send(raw){if(this.stopped)return;let msg;try{msg=JSON.parse(raw)}catch{return}
-  if(msg.type==='create_room'){this.create(msg.name);return;}
-  if(this.isHost){if(msg.type==='leave_room'){this.clearHost();for(const peer of this.peers.values())if(peer.channel?.readyState==='open')peer.channel.send(JSON.stringify({type:'room_ended',message:'房主已離開，房間已結束'}));this.sendSignalRaw({type:'end_room',secret:this.hostSecret});}this.authority?.receive('host',msg);return;}
-  const channel=this.peers.get('host')?.channel;
-  if(channel?.readyState==='open')channel.send(raw);else if(this.pending.length<10)this.pending.push(raw);
- }
- pause(){if(!this.isHost)return;for(const peer of this.peers.values())if(peer.channel?.readyState==='open')try{peer.channel.send(JSON.stringify({type:'host_paused'}))}catch(_){}}
+ pause(){if(!this.isHost)return;this.saveHost();for(const c of this.peers.values())if(c.open)try{c.send({type:'host_paused'})}catch(_){}}
  ended(message){if(this.stopped)return;this.emit({type:'room_ended',message});this.close();}
- close(){if(this.stopped)return;this.stopped=true;this.readyState=CLOSED;clearTimeout(this.signalTimer);
-  clearTimeout(this.offlineTimer);try{this.signaling?.close()}catch(_){};for(const p of this.peers.values()){clearTimeout(p.connectTimer);clearTimeout(p.disconnectedTimer);p.pc.close();}
-  this.peers.clear();this.authority?.dispose?.();this.onclose?.();}
+ close(){if(this.stopped)return;this.stopped=true;this.readyState=CLOSED;clearTimeout(this.retryTimer);clearTimeout(this.deadlineTimer);clearTimeout(this.signalTimer);clearTimeout(this.connectTimeout);this.unlock();for(const [id,c] of [...this.peers])this.disposePeer(id,c);try{this.peer?.destroy()}catch(_){}this.authority?.dispose?.();this.onclose?.();}
 }
 root.PocketP2PSocket=P2PSocket;
 })(window);
