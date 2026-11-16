@@ -59,8 +59,8 @@ class PocketApp {
         const transportParam = new URLSearchParams(location.search).get('transport');
         this.p2pMode = transportParam === 'p2p' || (transportParam !== 'ws' && window.POCKET_P2P_DEFAULT === true);
         if(this.p2pMode) {
-            this.dom.roomIdInput.type='text';this.dom.roomIdInput.maxLength=8;this.dom.roomIdInput.inputMode='text';
-            this.dom.roomIdInput.placeholder='輸入 8 碼房號';this.dom.roomIdInput.autocapitalize='characters';
+            this.dom.roomIdInput.type='text';this.dom.roomIdInput.maxLength=8;this.dom.roomIdInput.inputMode='numeric';
+            this.dom.roomIdInput.placeholder='輸入 4 位數字房號';this.dom.roomIdInput.autocapitalize='characters';
             // No LAN /api/rooms on a static/Worker host: hide the open-rooms panel (#open-rooms).
             (document.getElementById('open-rooms')||this.dom.openRoomsList)?.classList.add('hidden');
             const banner=document.querySelector('.hero-badge');if(banner)banner.textContent='線上好友・跨網路對戰';
@@ -80,7 +80,7 @@ class PocketApp {
             if (this.p2pMode && this.ws?.isHost && this.roomId) try { this.ws.pause?.(); this.ws.unlock?.(); } catch (e) { /* page is going away */ }
         });
         const invitedRoomId = new URLSearchParams(window.location.search).get('room');
-        if ((this.p2pMode ? /^[A-Z2-9]{8}$/ : /^\d{4}$/).test((invitedRoomId || '').toUpperCase())) {
+        if (this.p2pMode ? window.PocketP2PSocket?.isValidRoomCode((invitedRoomId || '').toUpperCase()) : /^\d{4}$/.test(invitedRoomId || '')) {
             this.dom.roomIdInput.value = this.p2pMode ? invitedRoomId.toUpperCase() : invitedRoomId;
             if (this.p2pMode) {try {const cached=JSON.parse(localStorage.getItem('pocket_p2p_view_'+invitedRoomId.toUpperCase())||'null');if(cached?.state?.gameType && cached.state.gameType!=='carcassonne' && Date.now()-cached.at<24*3600*1000){this.roomId=invitedRoomId.toUpperCase();this.applyOnlineRoomState({...cached.state,status:'reconnecting'});this.enterGameView();this.renderOnlineBoard();this.roomId=null;}} catch (_) {}}
             // A QR invite is meant to be one tap: use the saved guest name and
@@ -506,7 +506,7 @@ this.connectWS();this.ws?.create(this.playerName,this.selectedGame,pCount);
     joinOnlineRoom() {
         const code = this.dom.roomIdInput.value.trim().toUpperCase();
         if(this.p2pMode) {
-            if(!/^[A-Z2-9]{8}$/.test(code)){this.showToast('請輸入 8 位英數字房號');return;}
+            if(!window.PocketP2PSocket?.isValidRoomCode(code)){this.showToast('請輸入 4 位數字房號（舊版 8 碼仍支援）');return;}
             if(this.ws && this.ws.readyState!==WebSocket.CLOSED)return;
             this.stopReconnect();this.roomId=null;this.myRole=null;
             // onOpen fires again after every DataChannel re-open, so read the session at send time:
