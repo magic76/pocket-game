@@ -1,4 +1,4 @@
-# ✈️ Pocket Game Hub (機上離線棋藝盒 9-in-1)
+# ✈️ Pocket Game Hub (機上離線棋藝盒 10-in-1)
 
 專為飛機環境、無網路情境設計的輕量級局域網多人在線棋藝合集。
 
@@ -6,7 +6,7 @@
 
 ---
 
-## 🎮 內建九款經典桌遊
+## 🎮 內建十款經典桌遊
 
 1. **🎯 五子棋 (Gomoku)**：15x15 經典棋盤、星位標記、五連珠獲勝發光動畫。
 2. **⚪⚫ 黑白棋 (Reversi / Othello)**：8x8 棋盤、合法落子光圈提示、3D 翻子動畫、無子可走自動 Pass。
@@ -63,3 +63,17 @@
 ```
 
 瀏覽器打開：`http://localhost:8080` (同行朋友連上熱點後掃描終端機 QR Code 即可進入)。
+
+
+## GitHub Pages P2P support
+
+The `p2p/round4` feature branch supports **all ten games** using free PeerJS signaling and a host-browser authority. The same rule engines used by the Termux/LAN `server.js` are reused for eight classic board games; Bingo and 築城物語 use specialized host-side state/turn validation.
+
+- **2 players**: 五子棋、黑白棋、中國象棋、西洋棋、重力四子棋、終極井字棋
+- **2 / 3 players**: 六角星跳棋
+- **2 / 4 players**: 德國圍棋
+- **2–4 players**: 賓果、築城物語
+
+Create a room from the lobby, share the QR/link, and keep the host browser open. The Pages site creates 4-digit numeric PeerJS room codes (1000–9999; existing 8-character invitations remain accepted) and persists the host state locally for reconnect. Bingo cards are scoped to their individual recipient over the P2P protocol; the host retains authoritative copies. The dedicated 築城物語 page resumes a host room after navigation/reload. Game-over, voting and turn legality are enforced by the browser host, which **is not anti-cheat infrastructure**.
+
+Run `npm test` (LAN + P2P; includes `test/p2p-full-games.test.cjs`). See `docs/p2p-full-games.md` for full multiplayer acceptance checks. PeerJS public signaling / STUN-only networks are best effort, not guaranteed behind restrictive NAT; add short-lived TURN credentials for broader connectivity. Deployment status on GitHub Pages must be verified in GitHub Actions separately. Game artwork/licensing has not been audited by this change.

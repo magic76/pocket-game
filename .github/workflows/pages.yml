@@ -1,0 +1,34 @@
+name: Deploy Pocket Game to GitHub Pages
+# Publishes public/ as a static site (https://magic76.github.io/pocket-game/).
+# PeerJS is vendored in public/vendor/peerjs.min.js (MIT, see peerjs-LICENSE.txt); no fetch/build step.
+# Triggers: push to main, push to the p2p/round4 preview branch, or manual run.
+# NOTE: the github-pages environment only lets allowed branches deploy; add a deployment
+# branch policy for p2p/round4 if you deploy from it (see docs/p2p-round4.md).
+on:
+  push:
+    branches: [main, p2p/round4]
+    paths: ['public/**', '.github/workflows/pages.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check vendored libraries
+        run: test -s public/vendor/peerjs.min.js && test -s public/vendor/qrcode.min.js
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+      - id: deploy
+        uses: actions/deploy-pages@v4

@@ -53,18 +53,45 @@ class PocketApp {
         this.serverInfo = null;
 
         this.initDOM();
-        this.fetchServerInfo();
-        this.fetchOpenRooms();
+        // P2P only when explicitly requested (?transport=p2p) or when p2p-config.js marks this
+        // host as a P2P deployment (POCKET_P2P_DEFAULT). ?transport=ws always forces LAN mode, so
+        // an HTTPS-fronted LAN server (e.g. via a tunnel) is never switched to P2P by accident.
+        const transportParam = new URLSearchParams(location.search).get('transport');
+        this.p2pMode = transportParam === 'p2p' || (transportParam !== 'ws' && window.POCKET_P2P_DEFAULT === true);
+        if(this.p2pMode) {
+            this.dom.roomIdInput.type='text';this.dom.roomIdInput.maxLength=8;this.dom.roomIdInput.inputMode='numeric';
+            this.dom.roomIdInput.placeholder='輸入 4 位數字房號';this.dom.roomIdInput.autocapitalize='characters';
+            // No LAN /api/rooms on a static/Worker host: hide the open-rooms panel (#open-rooms).
+            (document.getElementById('open-rooms')||this.dom.openRoomsList)?.classList.add('hidden');
+            const banner=document.querySelector('.hero-badge');if(banner)banner.textContent='線上好友・跨網路對戰';
+            const intro=document.querySelector('.hero-desc');if(intro)intro.textContent='十款遊戲支援線上好友對戰；分享連結或 QR Code 即可加入，房主須保持連線。';
+            const onlinePill=document.querySelector('.mode-pill[data-mode="online"]');if(onlinePill)onlinePill.textContent='🌐 線上 P2P 對戰';
+            const qrHelp=document.querySelector('#qr-modal .modal-card p');if(qrHelp)qrHelp.textContent='傳送邀請連結或掃描 QR Code 即可加入（需網路）';
+        } else {this.fetchServerInfo();this.fetchOpenRooms();}
         this.openRoomsRefreshTimer = setInterval(() => {
-            if (!this.dom.viewLobby.classList.contains('hidden') && this.currentMode === 'online') this.fetchOpenRooms();
+            if (!this.p2pMode && !this.dom.viewLobby.classList.contains('hidden') && this.currentMode === 'online') this.fetchOpenRooms();
         }, 5000);
 
+        // Reload and mobile page eviction are not explicit departures. The host snapshot remains
+        // in localStorage; only the Leave button sends end_room. On pagehide the host only tells
+        // guests it stepped away, so they show a waiting message at once (ended after ~75 s if the
+        // host does not come back) instead of silently stalling.
+        window.addEventListener('pagehide', () => {
+            if (this.p2pMode && this.ws?.isHost && this.roomId) try { this.ws.pause?.(); this.ws.unlock?.(); } catch (e) { /* page is going away */ }
+        });
         const invitedRoomId = new URLSearchParams(window.location.search).get('room');
-        if (/^\d{4}$/.test(invitedRoomId || '')) {
-            this.dom.roomIdInput.value = invitedRoomId;
+        if (this.p2pMode ? window.PocketP2PSocket?.isValidRoomCode((invitedRoomId || '').toUpperCase()) : /^\d{4}$/.test(invitedRoomId || '')) {
+            this.dom.roomIdInput.value = this.p2pMode ? invitedRoomId.toUpperCase() : invitedRoomId;
+            if (this.p2pMode) {try {const cached=JSON.parse(localStorage.getItem('pocket_p2p_view_'+invitedRoomId.toUpperCase())||'null');if(cached?.state?.gameType && cached.state.gameType!=='carcassonne' && Date.now()-cached.at<24*3600*1000){this.roomId=invitedRoomId.toUpperCase();this.applyOnlineRoomState({...cached.state,status:'reconnecting'});this.enterGameView();this.renderOnlineBoard();this.roomId=null;}} catch (_) {}}
             // A QR invite is meant to be one tap: use the saved guest name and
             // join as soon as this lobby has initialised.
-            setTimeout(() => this.joinOnlineRoom(), 0);
+            setTimeout(() => {
+                if(this.p2pMode && this.getRoomSession(invitedRoomId.toUpperCase())?.role==='black'){
+                    this.connectWS();if(this.ws?.restore(invitedRoomId.toUpperCase()))return;
+                    this.ws?.close();this.ws=null;
+                }
+                this.joinOnlineRoom();
+            }, 0);
         }
     }
 
@@ -259,6 +286,7 @@ class PocketApp {
     applyOnlineRoomState(roomState) {
         if (!roomState) return;
         this.roomState = roomState;
+        if (this.p2pMode && this.roomId) try { localStorage.setItem(`pocket_p2p_view_${this.roomId}`, JSON.stringify({state:roomState,at:Date.now()})); } catch (_) {}
         this.selectedGame = roomState.gameType || this.selectedGame;
         this.configureEngineForRoom(roomState);
         if (this.selectedGame !== 'carcassonne' && this.activeEngine) this.activeEngine.loadState(roomState);
@@ -332,7 +360,7 @@ class PocketApp {
         this.dom.onlinePanel.classList.toggle('hidden', mode !== 'online');
         this.dom.hotseatPanel.classList.toggle('hidden', mode !== 'hotseat');
         this.dom.aiPanel.classList.toggle('hidden', mode !== 'ai');
-        if (mode === 'online') this.fetchOpenRooms();
+        if (mode === 'online' && !this.p2pMode) this.fetchOpenRooms();
         window.sounds.playPing();
     }
 
@@ -380,37 +408,36 @@ class PocketApp {
             if (onOpen) onOpen();
             return;
         }
-
+        if (this.p2pMode) {
+            if (!window.PocketP2PSocket || !window.Peer) {this.showToast('尚未載入 PeerJS');return;}
+            if(this.ws && this.ws.readyState !== WebSocket.CLOSED)return;
+            let socket;
+            socket=new PocketP2PSocket(null,
+                event=>{if(this.ws===socket)this.handleServerMessage(JSON.parse(event.data));},
+                ()=>{if(this.ws===socket)this.ws=null;},
+                ()=>{if(this.ws===socket){this.reconnectAttempts=0;onOpen?.();}}
+            );
+            this.ws=socket;this.intentionalDisconnect=false;
+            return;
+        }
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}`;
-        const socket = new WebSocket(wsUrl);
+        const socket = new WebSocket(`${protocol}//${window.location.host}`);
         this.ws = socket;
         this.intentionalDisconnect = false;
-
         socket.onopen = () => {
             if (this.ws !== socket) return;
             this.reconnectAttempts = 0;
-            if (onOpen) onOpen();
+            onOpen?.();
         };
-
-        socket.onmessage = (e) => {
-            const data = JSON.parse(e.data);
-            this.handleServerMessage(data);
-        };
-
+        socket.onmessage = e => this.handleServerMessage(JSON.parse(e.data));
         socket.onclose = () => {
             if (this.ws === socket) this.ws = null;
             if (this.shouldReconnect && !this.intentionalDisconnect && this.roomId) {
                 this.showToast('⚠️ 連線中斷，正在恢復房間…');
                 this.scheduleReconnect();
-            } else if (!this.intentionalDisconnect) {
-                this.showToast('⚠️ 與伺服器連線中斷');
-            }
+            } else if (!this.intentionalDisconnect) this.showToast('⚠️ 與伺服器連線中斷');
         };
-
-        socket.onerror = () => {
-            this.showToast('❌ 連線錯誤');
-        };
+        socket.onerror = () => this.showToast('❌ 連線錯誤');
     }
 
     scheduleReconnect() {
@@ -438,6 +465,15 @@ class PocketApp {
         }, delay);
     }
 
+    setRoomParam(roomId) {
+        // Reflect the current P2P room in the address bar (no navigation); null removes it.
+        try {
+            const url = new URL(location.href);
+            if (roomId) url.searchParams.set('room', roomId); else url.searchParams.delete('room');
+            if (url.href !== location.href) history.replaceState(history.state, '', url);
+        } catch (e) { /* ignore */ }
+    }
+
     stopReconnect() {
         this.shouldReconnect = false;
         this.intentionalDisconnect = true;
@@ -447,45 +483,65 @@ class PocketApp {
     }
 
     createOnlineRoom() {
+        if(this.p2pMode) {
+            if(!window.PocketGameRules?.TYPES.includes(this.selectedGame)){this.showToast('目前不支援此遊戲的 P2P 模式');return;}
+            this.stopReconnect();
+            if(this.ws)this.ws.close();this.ws=null;this.roomId=null;this.myRole=null;
+            const pCount = this.selectedGame==='checkers'?this.checkersPlayerCount:
+  this.selectedGame==='blokus'?this.blokusPlayerCount:
+  this.selectedGame==='carcassonne'?this.carcassonnePlayerCount:
+  this.selectedGame==='bingo'?this.bingoPlayerCount:2;
+this.connectWS();this.ws?.create(this.playerName,this.selectedGame,pCount);
+            return;
+        }
         this.stopReconnect();
         this.connectWS(() => {
             const pCount = this.selectedGame === 'checkers' ? this.checkersPlayerCount :
-                          (this.selectedGame === 'blokus' ? this.blokusPlayerCount :
-                          (this.selectedGame === 'carcassonne' ? this.carcassonnePlayerCount : (this.selectedGame === 'bingo' ? this.bingoPlayerCount : 2)));
-            this.ws.send(JSON.stringify({
-                type: 'create_room',
-                gameType: this.selectedGame,
-                playerCount: pCount,
-                name: this.playerName
-            }));
+                (this.selectedGame === 'blokus' ? this.blokusPlayerCount :
+                (this.selectedGame === 'carcassonne' ? this.carcassonnePlayerCount : (this.selectedGame === 'bingo' ? this.bingoPlayerCount : 2)));
+            this.ws.send(JSON.stringify({type:'create_room',gameType:this.selectedGame,playerCount:pCount,name:this.playerName}));
         });
     }
 
     joinOnlineRoom() {
-        const code = this.dom.roomIdInput.value.trim();
-        if (!code) {
-            this.showToast('請輸入 4 位數房間號碼');
+        const code = this.dom.roomIdInput.value.trim().toUpperCase();
+        if(this.p2pMode) {
+            if(!window.PocketP2PSocket?.isValidRoomCode(code)){this.showToast('請輸入 4 位數字房號（舊版 8 碼仍支援）');return;}
+            if(this.ws && this.ws.readyState!==WebSocket.CLOSED)return;
+            this.stopReconnect();this.roomId=null;this.myRole=null;
+            // onOpen fires again after every DataChannel re-open, so read the session at send time:
+            // after the first join it holds the resumeToken from room_joined.
+            this.connectWS(()=>{
+                const session=this.getRoomSession(code);
+                this.ws?.send(JSON.stringify({type:'join_room',roomId:code,name:this.playerName,resumeToken:session?.resumeToken||null}));
+            });
+            this.ws?.join(code);
             return;
         }
-
-        this.stopReconnect();
-        this.connectWS(() => {
-            this.ws.send(JSON.stringify({
-                type: 'join_room',
-                roomId: code,
-                name: this.playerName
-            }));
-        });
+        if(!code){this.showToast('請輸入 4 位數房間號碼');return;}
+        this.stopReconnect();this.connectWS(()=>this.ws.send(JSON.stringify({type:'join_room',roomId:code,name:this.playerName})));
     }
 
     handleServerMessage(data) {
         const { type } = data;
+
+        if (type === 'room_ended') {
+            this.stopReconnect();
+            this.shouldReconnect=false;this.intentionalDisconnect=true;
+            this.showToast(data.message || '房主已離線，房間已結束', 8000);
+            this.ws?.close();this.ws=null;try{if(this.roomId)localStorage.removeItem('pocket_p2p_view_'+this.roomId);}catch(e){}this.roomId=null;this.myRole=null;
+            this.setRoomParam(null);
+            this.dom.viewGame.classList.add('hidden');this.dom.viewLobby.classList.remove('hidden');
+            return;
+        }
 
         if (type === 'room_created') {
             this.roomId = data.roomId;
             this.myRole = data.role;
             this.saveRoomSession(data.roomId, data.resumeToken, data.role, data.roomState.gameType);
             this.shouldReconnect = true;
+            // P2P host: keep ?room= so a reload restores the saved host snapshot.
+            if (this.p2pMode) this.setRoomParam(data.roomId);
             this.applyOnlineRoomState(data.roomState);
             if (this.selectedGame === 'carcassonne') {
                 this.openCarcassonneRoom(data.roomId, 'online', data.roomState.playerCount, data.role);
@@ -501,6 +557,8 @@ class PocketApp {
             this.myRole = data.role;
             this.saveRoomSession(data.roomId, data.resumeToken, data.role, data.roomState.gameType);
             this.shouldReconnect = data.role !== 'spectator';
+            // P2P: keep ?room= in the URL so a page reload re-joins with the saved resumeToken.
+            if (this.p2pMode) this.setRoomParam(data.roomId);
             this.applyOnlineRoomState(data.roomState);
             if (this.selectedGame === 'carcassonne') {
                 this.openCarcassonneRoom(data.roomId, 'online', data.roomState.playerCount, data.role);
@@ -598,7 +656,9 @@ class PocketApp {
         }
 
         else if (type === 'error') {
-            this.showToast(`❌ ${data.message}`);
+            // P2P waiting notices already carry ⚠️ and should stay visible longer.
+            const warn = String(data.message || '').startsWith('⚠️');
+            this.showToast(warn ? data.message : `❌ ${data.message}`, warn ? 10000 : undefined);
             if (this.currentMode === 'online' && this.ws?.readyState === WebSocket.OPEN) {
                 this.ws.send(JSON.stringify({ type: 'sync_request' }));
             }
@@ -664,6 +724,7 @@ class PocketApp {
             // slot instead of accidentally joining as a second player.
             name: this.playerName
         });
+        if (this.p2pMode) params.set('transport','p2p');
         if (roomId) params.set('room', roomId);
         if (rejoinRole) params.set('rejoinRole', rejoinRole);
         const session = roomId ? this.getRoomSession(roomId) : null;
@@ -1029,6 +1090,7 @@ class PocketApp {
         }
         this.ws = null;
         this.clearRoomSession(leavingRoomId);
+        if (this.p2pMode) { this.setRoomParam(null); try { localStorage.removeItem(`pocket_p2p_view_${leavingRoomId}`); } catch (e) {} }
         this.roomId = null;
         this.myRole = null;
         this.selectedSquare = null;
@@ -2157,7 +2219,12 @@ class PocketApp {
     }
 
     async showQRModal() {
-        if (this.roomId) {
+        if (this.roomId && this.p2pMode) {
+            const invite = `${location.origin}${location.pathname}?transport=p2p&room=${encodeURIComponent(this.roomId)}`;
+            this.dom.qrUrlText.textContent = invite;
+            if(window.QRCode?.toDataURL) this.dom.qrImage.src=await window.QRCode.toDataURL(invite);
+            else this.dom.qrImage.removeAttribute('src');
+        } else if (this.roomId) {
             try {
                 const res = await fetch(`/api/room-invite?room=${encodeURIComponent(this.roomId)}`, { cache: 'no-store' });
                 if (!res.ok) throw new Error('invite unavailable');
