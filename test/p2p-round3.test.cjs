@@ -8,6 +8,7 @@ class GomokuEngine{
  makeMove(x,y){if(this.board[y][x]||this.winner)return false;this.board[y][x]=this.turn;this.lastMove={x,y,color:this.turn};this.moveHistory.push(this.lastMove);this.turn=this.turn==='black'?'white':'black';return true}
 }
 const w={GomokuEngine};const ctx={window:w,crypto,setTimeout,clearTimeout,console};
+vm.runInNewContext(fs.readFileSync(__dirname+'/../public/js/p2p-game-rules.js','utf8'),ctx);
 vm.runInNewContext(fs.readFileSync(__dirname+'/../public/js/p2p-authority.js','utf8'),ctx);
 const out=[];const deliver=(to,msg)=>out.push({to,msg});const auth=new w.PocketGomokuAuthority('ABCDEFGH','Host',deliver);
 auth.join('guest',{name:'Guest'});const resume=auth.players.white.resumeToken;

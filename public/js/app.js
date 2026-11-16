@@ -64,7 +64,7 @@ class PocketApp {
             // No LAN /api/rooms on a static/Worker host: hide the open-rooms panel (#open-rooms).
             (document.getElementById('open-rooms')||this.dom.openRoomsList)?.classList.add('hidden');
             const banner=document.querySelector('.hero-badge');if(banner)banner.textContent='線上好友・跨網路對戰';
-            const intro=document.querySelector('.hero-desc');if(intro)intro.textContent='分享邀請連結，朋友用手機瀏覽器即可加入（需網路）';
+            const intro=document.querySelector('.hero-desc');if(intro)intro.textContent='十款遊戲支援線上好友對戰；分享連結或 QR Code 即可加入，房主須保持連線。';
             const onlinePill=document.querySelector('.mode-pill[data-mode="online"]');if(onlinePill)onlinePill.textContent='🌐 線上 P2P 對戰';
             const qrHelp=document.querySelector('#qr-modal .modal-card p');if(qrHelp)qrHelp.textContent='傳送邀請連結或掃描 QR Code 即可加入（需網路）';
         } else {this.fetchServerInfo();this.fetchOpenRooms();}
@@ -82,7 +82,7 @@ class PocketApp {
         const invitedRoomId = new URLSearchParams(window.location.search).get('room');
         if ((this.p2pMode ? /^[A-Z2-9]{8}$/ : /^\d{4}$/).test((invitedRoomId || '').toUpperCase())) {
             this.dom.roomIdInput.value = this.p2pMode ? invitedRoomId.toUpperCase() : invitedRoomId;
-            if (this.p2pMode) {try {const cached=JSON.parse(localStorage.getItem('pocket_p2p_view_'+invitedRoomId.toUpperCase())||'null');if(cached?.state?.gameType==='gomoku' && Date.now()-cached.at<24*3600*1000){this.roomId=invitedRoomId.toUpperCase();this.applyOnlineRoomState({...cached.state,status:'reconnecting'});this.enterGameView();this.renderOnlineBoard();this.roomId=null;}} catch (_) {}}
+            if (this.p2pMode) {try {const cached=JSON.parse(localStorage.getItem('pocket_p2p_view_'+invitedRoomId.toUpperCase())||'null');if(cached?.state?.gameType && cached.state.gameType!=='carcassonne' && Date.now()-cached.at<24*3600*1000){this.roomId=invitedRoomId.toUpperCase();this.applyOnlineRoomState({...cached.state,status:'reconnecting'});this.enterGameView();this.renderOnlineBoard();this.roomId=null;}} catch (_) {}}
             // A QR invite is meant to be one tap: use the saved guest name and
             // join as soon as this lobby has initialised.
             setTimeout(() => {
@@ -484,10 +484,14 @@ class PocketApp {
 
     createOnlineRoom() {
         if(this.p2pMode) {
-            if(this.selectedGame!=='gomoku'){this.showToast('P2P 第二階段目前僅支援五子棋');return;}
+            if(!window.PocketGameRules?.TYPES.includes(this.selectedGame)){this.showToast('目前不支援此遊戲的 P2P 模式');return;}
             this.stopReconnect();
             if(this.ws)this.ws.close();this.ws=null;this.roomId=null;this.myRole=null;
-            this.connectWS();this.ws?.create(this.playerName);
+            const pCount = this.selectedGame==='checkers'?this.checkersPlayerCount:
+  this.selectedGame==='blokus'?this.blokusPlayerCount:
+  this.selectedGame==='carcassonne'?this.carcassonnePlayerCount:
+  this.selectedGame==='bingo'?this.bingoPlayerCount:2;
+this.connectWS();this.ws?.create(this.playerName,this.selectedGame,pCount);
             return;
         }
         this.stopReconnect();
@@ -720,6 +724,7 @@ class PocketApp {
             // slot instead of accidentally joining as a second player.
             name: this.playerName
         });
+        if (this.p2pMode) params.set('transport','p2p');
         if (roomId) params.set('room', roomId);
         if (rejoinRole) params.set('rejoinRole', rejoinRole);
         const session = roomId ? this.getRoomSession(roomId) : null;

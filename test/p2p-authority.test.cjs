@@ -12,6 +12,7 @@ const ctx={window:{},crypto:require('node:crypto').webcrypto,console,setTimeout:
 vm.createContext(ctx);
 const gomoku=process.env.GOMOKU_FILE || path.join(src,'gomoku.js');
 vm.runInContext(fs.readFileSync(gomoku,'utf8'),ctx);
+vm.runInContext(fs.readFileSync(path.join(src,'p2p-game-rules.js'),'utf8'),ctx);
 vm.runInContext(fs.readFileSync(path.join(src,'p2p-authority.js'),'utf8'),ctx);
 const messages=[];
 const a=new ctx.window.PocketGomokuAuthority('ABCDEFGH','Host',(id,msg)=>messages.push({id,...msg}));
