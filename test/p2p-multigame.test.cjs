@@ -29,7 +29,7 @@ function fixture() {
     setInterval: () => ++timerId, clearInterval: () => {}};
   vm.createContext(ctx);
   for (const file of ['gomoku.js', 'reversi.js', 'connect4.js', 'uttt.js',
-                      'p2p-authority.js', 'p2p-transport.js']) {
+                      'p2p-game-rules.js', 'p2p-authority.js', 'p2p-transport.js']) {
     vm.runInContext(read(file), ctx, {filename: file});
   }
   const out = [];
