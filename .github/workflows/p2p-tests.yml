@@ -2,7 +2,7 @@ name: Pocket Game P2P checks
 
 on:
   pull_request:
-    branches: [p2p/round4]
+    branches: [main, p2p/round4]
     paths:
       - 'public/**'
       - 'test/**'
@@ -10,7 +10,7 @@ on:
       - 'package-lock.json'
       - '.github/workflows/p2p-tests.yml'
   push:
-    branches: [p2p/round4]
+    branches: [main, p2p/round4]
   workflow_dispatch:
 
 permissions:
