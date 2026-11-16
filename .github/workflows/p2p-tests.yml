@@ -1,0 +1,36 @@
+name: Pocket Game P2P checks
+
+on:
+  pull_request:
+    branches: [p2p/round4]
+    paths:
+      - 'public/**'
+      - 'test/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/p2p-tests.yml'
+  push:
+    branches: [p2p/round4]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Existing LAN and P2P unit tests
+        run: npm test
+      - name: Check browser source syntax
+        run: |
+          node --check public/js/p2p-authority.js
+          node --check public/js/p2p-transport.js
+          node --check public/js/app.js
