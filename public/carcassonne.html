@@ -707,6 +707,12 @@
     </div>
 </div>
 
+<script src="js/p2p-config.js"></script>
+<script src="js/p2p-game-rules.js?v=full-games-1"></script>
+<script src="js/p2p-carc-rules.js?v=full-games-1"></script>
+<script src="js/p2p-authority.js?v=full-games-1"></script>
+<script src="vendor/peerjs.min.js"></script>
+<script src="js/p2p-transport.js?v=full-games-1"></script>
 <script>
     // ==========================================
     // 🔊 PROCEDURAL SOUND FX (Web Audio API)
@@ -1264,6 +1270,9 @@
     const gameParams = new URLSearchParams(window.location.search);
     const gameMode = gameParams.get('mode') || 'hotseat';
     const onlineRoomId = gameParams.get('room');
+    const carcP2P = gameParams.get('transport') === 'p2p' ||
+        (gameParams.get('transport') !== 'ws' && window.POCKET_P2P_DEFAULT === true);
+
     const roomCodeButton = document.getElementById('online-room-code');
     if (onlineRoomId) {
         roomCodeButton.textContent = `房號 ${onlineRoomId}`;
@@ -1526,12 +1535,21 @@
     }
 
     function connectOnlineGame() {
+        // Dedicated map screen owns its own connection after lobby navigation.
+        // Host restores the persisted authoritative room; guests reclaim a seat.
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const socket = new WebSocket(`${protocol}//${window.location.host}`);
+        const callbacks = {};
+        const socket = carcP2P
+            ? new PocketP2PSocket(null,
+                event => callbacks.message?.(event),
+                () => callbacks.close?.(),
+                () => callbacks.open?.())
+            : new WebSocket(`${protocol}//${window.location.host}`);
+        if (carcP2P) socket.addEventListener = (event, handler) => { callbacks[event] = handler; };
         onlineSocket = socket;
         onlineIntentionalLeave = false;
         socket.addEventListener('open', () => {
-            if (onlineSocket !== socket) return;
+            if (onlineSocket !== socket || socket.isHost) return;
             socket.send(JSON.stringify({
                 type: 'join_room',
                 roomId: onlineRoomId,
@@ -1546,7 +1564,7 @@
                 updateOnlinePlayers(roomState);
                 onlineStateVersion = roomState.carcassonneVersion || 0;
             }
-            if (message.type === 'room_joined') {
+            if (message.type === 'room_joined' || message.type === 'room_created') {
                 myRole = message.role;
                 if (message.resumeToken) rememberCarcassonneSession(message.resumeToken, myRole);
                 onlineShouldReconnect = myRole !== 'spectator';
@@ -1594,12 +1612,28 @@
         socket.addEventListener('close', () => {
             if (onlineSocket === socket) onlineSocket = null;
             onlineSyncPending = false;
-            if (!onlineIntentionalLeave && onlineShouldReconnect) {
+            if (!onlineIntentionalLeave && onlineShouldReconnect && !carcP2P) {
                 showToast('⚠️ 多人連線中斷，正在恢復…');
                 scheduleCarcassonneReconnect();
             }
         });
+        if (carcP2P) {
+            const host = gameParams.get('rejoinRole') === 'black' ||
+                loadCarcassonneSession()?.role === 'black';
+            if (host) {
+                if (!socket.restore(onlineRoomId)) {
+                    showToast('⚠️ 房主的本機房間紀錄已失效，請返回大廳重新開房');
+                    return;
+                }
+            } else socket.join(onlineRoomId);
+        }
     }
+    window.addEventListener('pagehide', () => {
+        if (carcP2P && onlineSocket?.isHost) {
+            onlineSocket.pause?.();
+            onlineSocket.unlock?.();
+        }
+    });
 
     window.toggleReactionPanel = function() {
         document.getElementById('reaction-panel').classList.toggle('hidden');
