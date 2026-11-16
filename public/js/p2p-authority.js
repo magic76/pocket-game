@@ -104,7 +104,7 @@ class GameAuthority {
     if(type==='carcassonne'){
       a.carcassonneState=saved.carcassonneState?clone(saved.carcassonneState):null;
       a.carcassonneVersion=integer(saved.carcassonneVersion,0,1e8)?saved.carcassonneVersion:0;
-      if(a.carcassonneState&&root.PocketCarcRules?.validate(a.carcassonneState,null,a))throw new Error('Invalid saved map');
+      if(a.carcassonneState&&!root.PocketCarcRules?.validateSaved(a.carcassonneState,a))throw new Error('Invalid saved map');
     }
     a.restartVotes.clear();
     a.updateStatus();
