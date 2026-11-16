@@ -590,10 +590,15 @@ this.connectWS();this.ws?.create(this.playerName,this.selectedGame,pCount);
             this.selectedHoleId = null;
             this.checkersValidDestinations = [];
             this.blokusPendingPlacement = null;
-            this.renderOnlineBoard();
+            this.renderOnlineBoard(this.selectedGame === 'connect4');
 
             if (this.roomState.winner) {
-                this.handleOnlineGameOver(this.roomState.winner);
+                const winner = this.roomState.winner;
+                if (this.selectedGame === 'connect4') {
+                    setTimeout(() => {
+                        if (this.selectedGame === 'connect4' && this.roomState?.winner === winner) this.handleOnlineGameOver(winner);
+                    }, 580);
+                } else this.handleOnlineGameOver(winner);
             }
         }
 
@@ -805,8 +810,14 @@ this.connectWS();this.ws?.create(this.playerName,this.selectedGame,pCount);
             const valid = engine.makeMove(col);
             if (valid) {
                 window.sounds.playDrop();
-                this.renderLocalBoard();
-                if (engine.winner) return this.handleLocalGameOver(engine.winner);
+                this.renderLocalBoard(true);
+                if (engine.winner) {
+                    const winner = engine.winner;
+                    setTimeout(() => {
+                        if (this.selectedGame === 'connect4' && engine.winner === winner) this.handleLocalGameOver(winner);
+                    }, 580);
+                    return;
+                }
                 this.triggerAITurnIfNeeded();
             }
         } else if (this.selectedGame === 'uttt') {
@@ -933,10 +944,15 @@ this.connectWS();this.ws?.create(this.playerName,this.selectedGame,pCount);
                     if (bestCol !== null) {
                         engine.makeMove(bestCol);
                         window.sounds.playDrop();
-                        this.renderLocalBoard();
-                        if (engine.winner) this.handleLocalGameOver(engine.winner);
+                        this.renderLocalBoard(true);
+                        if (engine.winner) {
+                            const winner = engine.winner;
+                            setTimeout(() => {
+                                if (this.selectedGame === 'connect4' && engine.winner === winner) this.handleLocalGameOver(winner);
+                            }, 580);
+                        }
                     }
-                }, 350);
+                }, 650);
             }
             return;
         }
@@ -1111,23 +1127,23 @@ this.connectWS();this.ws?.create(this.playerName,this.selectedGame,pCount);
         }
     }
 
-    renderOnlineBoard() {
+    renderOnlineBoard(animateConnect4 = false) {
         if (this.selectedGame === 'bingo') { this.drawBingoBoard(); this.updatePlayerStatus(); return; }
         this.configureEngineForRoom(this.roomState);
         const engine = this.activeEngine;
         if (this.roomState) {
             engine.loadState(this.roomState);
         }
-        this.drawBoard(engine, (x, y, extra) => this.handleOnlineCellClick(x, y, extra));
+        this.drawBoard(engine, (x, y, extra) => this.handleOnlineCellClick(x, y, extra), animateConnect4);
         this.updatePlayerStatus();
     }
 
-    renderLocalBoard() {
+    renderLocalBoard(animateConnect4 = false) {
         const engine = this.activeEngine;
         if (this.selectedGame === 'checkers') {
             this.drawCheckersBoard(engine, (holeId) => this.handleCheckersHoleClick(holeId));
         } else {
-            this.drawBoard(engine, (x, y, extra) => this.handleLocalCellClick(x, y, extra));
+            this.drawBoard(engine, (x, y, extra) => this.handleLocalCellClick(x, y, extra), animateConnect4);
         }
         this.updatePlayerStatus();
     }
@@ -1171,7 +1187,7 @@ this.connectWS();this.ws?.create(this.playerName,this.selectedGame,pCount);
         }
     }
 
-    drawBoard(engine, onCellClick) {
+    drawBoard(engine, onCellClick, animateConnect4 = false) {
         this.dom.boardEl.innerHTML = '';
 
         if (this.selectedGame === 'gomoku') {
@@ -1191,7 +1207,7 @@ this.connectWS();this.ws?.create(this.playerName,this.selectedGame,pCount);
             this.drawCheckersBoard(engine, (holeId) => this.handleCheckersHoleClick(holeId));
         } else if (this.selectedGame === 'connect4') {
             this.dom.boardEl.className = 'connect4-board';
-            this.drawConnect4Board(engine, onCellClick);
+            this.drawConnect4Board(engine, onCellClick, animateConnect4);
         } else if (this.selectedGame === 'uttt') {
             this.dom.boardEl.className = 'uttt-board';
             this.drawUTTTBoard(engine, onCellClick);
@@ -1555,10 +1571,18 @@ this.connectWS();this.ws?.create(this.playerName,this.selectedGame,pCount);
         }
     }
 
-    drawConnect4Board(engine, onColClick) {
-        this.dom.boardEl.innerHTML = '';
+    drawConnect4Board(engine, onColClick, animateLastMove = false) {
+        const board = this.dom.boardEl;
+        board.innerHTML = '';
         const cols = engine.cols;
         const rows = engine.rows;
+        const move = engine.lastMove;
+        const animate = animateLastMove && move &&
+            Number.isInteger(move.r) && move.r >= 0 && move.r < rows &&
+            Number.isInteger(move.c) && move.c >= 0 && move.c < cols &&
+            !window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+        let landingCell = null;
+        let landingDisc = null;
 
         for (let r = 0; r < rows; r++) {
             for (let c = 0; c < cols; c++) {
@@ -1567,18 +1591,49 @@ this.connectWS();this.ws?.create(this.playerName,this.selectedGame,pCount);
 
                 const discColor = engine.board[r][c];
                 if (discColor) {
-                    const isLast = engine.lastMove && engine.lastMove.r === r && engine.lastMove.c === c;
+                    const isLast = move && move.r === r && move.c === c;
                     const disc = document.createElement('div');
-                    disc.className = `connect4-disc ${discColor} ${isLast ? 'dropping' : ''}`;
+                    disc.className = `connect4-disc ${discColor}`;
                     if (engine.winningCells && engine.winningCells.some(w => w.r === r && w.c === c)) {
                         disc.classList.add('winning');
                     }
+                    if (animate && isLast) {
+                        landingCell = cell;
+                        landingDisc = disc;
+                    }
                     cell.appendChild(disc);
                 }
-
                 cell.addEventListener('click', () => onColClick(c, r));
-                this.dom.boardEl.appendChild(cell);
+                board.appendChild(cell);
             }
+        }
+
+        // .connect4-cell clips its own children; use a temporary board-level
+        // disc so the full gravity path stays visible, including above row 0.
+        // A reload, resync or normal render never replays the last move.
+        if (landingCell && landingDisc && landingDisc.offsetWidth && landingDisc.offsetHeight) {
+            const x = landingCell.offsetLeft + landingDisc.offsetLeft;
+            const y = landingCell.offsetTop + landingDisc.offsetTop;
+            const falling = document.createElement('div');
+            falling.className = `connect4-disc ${move.color} gravity-falling`;
+            falling.style.left = `${x}px`;
+            falling.style.top = `${y}px`;
+            falling.style.width = `${landingDisc.offsetWidth}px`;
+            falling.style.height = `${landingDisc.offsetHeight}px`;
+            falling.style.setProperty('--connect4-drop-start', `-${y + landingDisc.offsetHeight + 8}px`);
+            landingDisc.classList.add('gravity-target');
+            board.appendChild(falling);
+
+            let finished = false;
+            const reveal = () => {
+                if (finished) return;
+                finished = true;
+                landingDisc.classList.remove('gravity-target');
+                falling.remove();
+            };
+            falling.addEventListener('animationend', reveal, { once: true });
+            // A hidden tab or browser bug may suppress animationend.
+            setTimeout(reveal, 800);
         }
     }
 
