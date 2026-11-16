@@ -82,7 +82,7 @@ class PocketApp {
         const invitedRoomId = new URLSearchParams(window.location.search).get('room');
         if ((this.p2pMode ? /^[A-Z2-9]{8}$/ : /^\d{4}$/).test((invitedRoomId || '').toUpperCase())) {
             this.dom.roomIdInput.value = this.p2pMode ? invitedRoomId.toUpperCase() : invitedRoomId;
-            if (this.p2pMode) {try {const cached=JSON.parse(localStorage.getItem('pocket_p2p_view_'+invitedRoomId.toUpperCase())||'null');if(cached?.state?.gameType==='gomoku' && Date.now()-cached.at<24*3600*1000){this.roomId=invitedRoomId.toUpperCase();this.applyOnlineRoomState({...cached.state,status:'reconnecting'});this.enterGameView();this.renderOnlineBoard();this.roomId=null;}} catch (_) {}}
+            if (this.p2pMode) {try {const cached=JSON.parse(localStorage.getItem('pocket_p2p_view_'+invitedRoomId.toUpperCase())||'null');if(['gomoku','reversi','connect4','uttt'].includes(cached?.state?.gameType) && Date.now()-cached.at<24*3600*1000){this.roomId=invitedRoomId.toUpperCase();this.applyOnlineRoomState({...cached.state,status:'reconnecting'});this.enterGameView();this.renderOnlineBoard();this.roomId=null;}} catch (_) {}}
             // A QR invite is meant to be one tap: use the saved guest name and
             // join as soon as this lobby has initialised.
             setTimeout(() => {
@@ -484,10 +484,10 @@ class PocketApp {
 
     createOnlineRoom() {
         if(this.p2pMode) {
-            if(this.selectedGame!=='gomoku'){this.showToast('P2P 第二階段目前僅支援五子棋');return;}
+            if(!['gomoku','reversi','connect4','uttt'].includes(this.selectedGame)){this.showToast('此遊戲尚未支援 P2P，請選五子棋、黑白棋、重力四子棋或終極井字棋');return;}
             this.stopReconnect();
             if(this.ws)this.ws.close();this.ws=null;this.roomId=null;this.myRole=null;
-            this.connectWS();this.ws?.create(this.playerName);
+            this.connectWS();this.ws?.create(this.playerName,this.selectedGame);
             return;
         }
         this.stopReconnect();
