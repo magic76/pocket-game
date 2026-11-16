@@ -168,7 +168,7 @@ class PocketApp {
         const names = {
             gomoku: '🎯 五子棋', reversi: '⚪⚫ 黑白棋', xiangqi: '🀄 中國象棋', chess: '♟️ 西洋棋',
             checkers: '⭐ 六角跳棋', connect4: '🟡🔴 重力四子棋', uttt: '❌⭕ 終極井字棋',
-            blokus: '🧱 德國圍棋', carcassonne: '🏰 卡卡頌', bingo: '🎱 賓果'
+            blokus: '🧱 德國圍棋', carcassonne: '🏰 築城物語', bingo: '🎱 賓果'
         };
         rooms.forEach(room => {
             const button = document.createElement('button');
@@ -695,7 +695,7 @@ class PocketApp {
 
     startAIGame() {
         if (this.selectedGame === 'carcassonne') {
-            this.showToast('卡卡頌目前支援同機與多人連線模式');
+            this.showToast('築城物語目前支援同機與多人連線模式');
             return;
         }
         this.currentMode = 'ai';
