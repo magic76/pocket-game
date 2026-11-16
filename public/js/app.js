@@ -64,7 +64,7 @@ class PocketApp {
             // No LAN /api/rooms on a static/Worker host: hide the open-rooms panel (#open-rooms).
             (document.getElementById('open-rooms')||this.dom.openRoomsList)?.classList.add('hidden');
             const banner=document.querySelector('.hero-badge');if(banner)banner.textContent='線上好友・跨網路對戰';
-            const intro=document.querySelector('.hero-desc');if(intro)intro.textContent='分享邀請連結，朋友用手機瀏覽器即可加入（需網路）';
+            const intro=document.querySelector('.hero-desc');if(intro)intro.textContent='P2P 支援五子棋、黑白棋、重力四子棋與終極井字棋；分享邀請連結讓朋友加入。其他遊戲可用同機或 AI 模式。';
             const onlinePill=document.querySelector('.mode-pill[data-mode="online"]');if(onlinePill)onlinePill.textContent='🌐 線上 P2P 對戰';
             const qrHelp=document.querySelector('#qr-modal .modal-card p');if(qrHelp)qrHelp.textContent='傳送邀請連結或掃描 QR Code 即可加入（需網路）';
         } else {this.fetchServerInfo();this.fetchOpenRooms();}
