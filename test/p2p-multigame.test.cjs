@@ -41,13 +41,13 @@ const cases = [
   {game:'gomoku', a:{x:7,y:7}, b:{x:7,y:8},
    bad:{x:15,y:7}, inspect:s=>s.board[7][7]==='black'},
   {game:'reversi', a:{x:2,y:3}, b:{x:2,y:2},
-   bad:{x:8,y:0}, inspect:s=>s.board[3][2]==='black' && s.scores.black===4},
+   bad:{x:8,y:0}, inspect:s=>s.board[3][2]==='black'},
   {game:'connect4', a:{col:3}, b:{col:4},
    bad:{col:7}, inspect:s=>s.board[5][3]==='red'},
   {game:'uttt', a:{mainR:0,mainC:0,subR:1,subC:1},
    b:{mainR:1,mainC:1,subR:0,subC:0},
    bad:{mainR:3,mainC:0,subR:0,subC:0},
-   inspect:s=>s.subBoards[0][0][1][1]==='X' && s.activeBoard.mainR===1}
+   inspect:s=>s.subBoards[0][0][1][1]==='X'}
 ];
 
 for (const test of cases) {
@@ -68,10 +68,12 @@ for (const test of cases) {
   room.receive('host',{type:'move',...test.a});
   assert.equal(room.version,1);
   assert(test.inspect(room.snapshot()),test.game+' host move');
+  if (test.game === 'reversi') assert.equal(room.snapshot().scores.black,4);
+  if (test.game === 'uttt') assert.equal(room.snapshot().activeBoard.mainR,1);
   room.receive('guest',{type:'move',...test.b});
   assert.equal(room.version,2);
   const after=JSON.stringify(room.snapshot());
-  room.receive('host',{type:'move',...test.a}); // duplicate or invalid board
+  room.receive('host',{type:'move',...test.bad}); // out-of-range action after legal moves
   assert.equal(JSON.stringify(room.snapshot()),after);
   room.receive('spectator',{type:'join_room',name:'Watcher'});
   room.receive('spectator',{type:'move',...test.a});
