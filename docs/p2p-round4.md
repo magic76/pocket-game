@@ -7,6 +7,7 @@
   (do not commit private/permanent credentials — the repo and site are public).
 - PeerJS 1.5.5 is vendored at `public/vendor/peerjs.min.js` (MIT, `public/vendor/peerjs-LICENSE.txt`); no CDN,
   no fetch step in the workflow. `scripts/vendor-peerjs.sh` re-vendors it (needs npm network).
+- New host room codes are four numeric digits (1000–9999); old eight-character room codes remain accepted for existing invitation links. The code is not a password; treat active rooms as discoverable. On PeerJS ID collision the host retries a different code before announcing a room.
 - Host peer id: `pocketgame-v1-<CODE>`; guests: `pocketgame-v1-guest-<random>`. Host browser is the authority
   (`p2p-authority.js`). Host snapshot `pocket_p2p_host_<CODE>` and guest view cache `pocket_p2p_view_<CODE>` are
   purged after 24 h; a localStorage soft-lock warns when a second tab tries to restore the same host room.
