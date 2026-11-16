@@ -247,6 +247,12 @@ function validateCarcState(next, previous, room) {
 
 root.PocketCarcRules = Object.freeze({
   validate:validateCarcState,
-  canonicalize:canonicalizeCarcState
+  canonicalize:canonicalizeCarcState,
+  validateSaved:(saved,room)=>{
+    if(!saved||Number(saved.playerCount)!==room.playerCount||
+       !CARC_PLAYER_ORDER.slice(0,room.playerCount).includes(saved.activePlayer))return false;
+    const parsed=parseCarcGrid(saved.grid,CARC_PLAYER_ORDER.slice(0,room.playerCount));
+    return !parsed.error && parsed.grid.size>0 && validCarcBoard(parsed.grid) && hasExactCarcDeck(saved,parsed.grid);
+  }
 });
 })(window);
