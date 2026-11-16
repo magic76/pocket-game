@@ -52,7 +52,7 @@ class P2PSocket {
  clearOffline(){this.offlineSince=0;clearTimeout(this.deadlineTimer);clearTimeout(this.retryTimer);this.deadlineTimer=this.retryTimer=null;}
  deliver(to,msg){if(to==='host')this.emit(msg);else{const c=this.peers.get(to);if(c?.open)c.send(msg);}}
  send(raw){if(this.stopped)return;let msg;try{msg=JSON.parse(raw)}catch{return;}if(msg.type==='create_room'){this.create(msg.name,msg.gameType,msg.playerCount);return;}
-  if(this.isHost){if(msg.type==='leave_room'){for(const c of this.peers.values())if(c.open)c.send({type:'room_ended',message:'房主已離開，房間已結束'});if(this.authority)this.authority.onChange=null;this.clearHost();this.close();return;}this.authority?.receive('host',msg);return;}
+  if(this.isHost){if(msg.type==='leave_room'){for(const c of this.peers.values())if(c.open)c.send({type:'room_ended',message:'房主已離開，房間已結束'});if(this.authority)this.authority.onChange=null;this.clearHost();return;}this.authority?.receive('host',msg);return;}
   const c=this.peers.get('host');if(c?.open)c.send(msg);else if(this.pending.length<10&&!this.pending.some(x=>x===raw))this.pending.push(raw);
  }
  pause(){if(!this.isHost)return;this.saveHost();for(const c of this.peers.values())if(c.open)try{c.send({type:'host_paused'})}catch(_){}}
