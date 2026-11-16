@@ -153,7 +153,7 @@ for (const test of cases) {
   }
   const invalid=new f.ctx.window.PocketP2PSocket(null,
     event=>messages.push(JSON.parse(event.data)),()=>{},()=>{});
-  invalid.create('Host','chess');
+  invalid.create('Host','not-a-game');
   assert.equal(invalid.authority,null);
   assert.equal(messages.at(-1).type,'error');
   invalid.close();
