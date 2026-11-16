@@ -38,7 +38,7 @@ function fixture(sequence=[]) {
     },
     localStorage:storage,console,Date,Math,
     crypto:{getRandomValues(arr){
-      if(arr instanceof Uint32Array)arr[0]=sequence[sequenceIndex++]??sequenceIndex;
+      if(arr.BYTES_PER_ELEMENT===4)arr[0]=sequence[sequenceIndex++]??sequenceIndex;
       else for(let i=0;i<arr.length;i++)arr[i]=++guestCounter&255;
       return arr;
     }},
