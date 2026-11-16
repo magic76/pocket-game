@@ -531,7 +531,7 @@ function validateCarcState(next, previous, room) {
     if (!next || Number(next.playerCount) !== room.playerCount) return '房間設定不符';
     const players = CARC_PLAYER_ORDER.slice(0, room.playerCount);
     const parsed = parseCarcGrid(next.grid, players);
-    if (parsed.error || !Array.isArray(next.deck) || !next.scores || !next.meeplesRemaining) return parsed.error || '卡卡頌狀態不完整';
+    if (parsed.error || !Array.isArray(next.deck) || !next.scores || !next.meeplesRemaining) return parsed.error || '築城物語狀態不完整';
     if (!['PLACE_TILE', 'DEPLOY_MEEPLE', 'RESOLVING', 'GAME_OVER'].includes(next.turnPhase)) return '回合階段不正確';
     if (!players.includes(next.activePlayer)) return '玩家順序不正確';
     if (next.currentTile && (!CARC_TILES.has(next.currentTile.typeKey) || !Number.isInteger(next.currentTile.rotation) || next.currentTile.rotation < 0 || next.currentTile.rotation > 3)) return '目前卡片不正確';
