@@ -2288,7 +2288,7 @@
         } else if (onlineSocket) {
             onlineSocket.close();
         }
-        window.location.href = 'index.html';
+        window.location.href = carcP2P ? 'index.html?transport=p2p' : 'index.html';
     }
 
     function toggleGalleryModal() {
