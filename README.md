@@ -63,3 +63,8 @@
 ```
 
 瀏覽器打開：`http://localhost:8080` (同行朋友連上熱點後掃描終端機 QR Code 即可進入)。
+
+
+## GitHub Pages P2P support
+
+The `p2p/round4` branch runs four 2-player games over PeerJS: 五子棋、黑白棋、重力四子棋、終極井字棋. Other games remain available through LAN WebSocket or local/AI modes; P2P room creation for them is intentionally blocked. Game state and move validation are owned by the host browser, which is not a cheat-resistant server. See `docs/p2p-round4.md` for GitHub Pages deployment and STUN/TURN limitations.
