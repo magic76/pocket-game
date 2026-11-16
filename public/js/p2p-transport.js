@@ -2,7 +2,7 @@
 (function(root){'use strict';
 const CONNECTING=0, OPEN=1, CLOSED=3, WAIT=75000, FRESH_WAIT=25000, RETAIN=24*3600*1000;
 // New rooms use a 4-digit code. Legacy 8-character invites still work for 24h host snapshots.
-const validRoomCode=code=>typeof code==='string' && /^(?:[1-9]\\d{3}|[A-Z2-9]{8})$/.test(code);
+const validRoomCode=code=>typeof code==='string' && /^(?:[1-9]\d{3}|[A-Z2-9]{8})$/.test(code);
 const hostId=id=>'pocketgame-v1-'+id;
 const hostKey=id=>'pocket_p2p_host_'+id;
 const randomCode=()=>{
