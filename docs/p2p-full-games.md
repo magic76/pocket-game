@@ -38,7 +38,7 @@ The extended `test/p2p-full-games.test.cjs` uses the **real browser engines** to
 
 ## Real-device acceptance (not covered by Node tests)
 1. Enable GitHub Pages Source = GitHub Actions, allow the preview branch in `github-pages` deployment policies. Important: publishing from the preview branch shares the same `magic76.github.io/pocket-game/` URL; it is **not** isolated staging.
-2. On two physical phones with different cellular/Wi-Fi networks, create and join each of the 10 games. Verify 8-character room code, QR code, correct game selected and role.
+2. On two physical phones with different cellular/Wi-Fi networks, create and join each of the 10 games. Verify 4-digit numeric room code (1000–9999), QR code, correct game selected and role. Previously generated 8-character room links remain accepted during the local 24-hour host snapshot lifetime.
 3. Play valid and invalid moves, rotate/transform pieces and confirm state/turn synchronization. Test 3-player Chinese checkers, 4-player Blokus, Bingo and map, not just 2-player.
 4. For Bingo, confirm each client sees only their own card; setup random/custom cards, call/mark, complete five lines and confirm a single winner.
 5. For 築城物語, confirm navigation to standalone page preserves host seat; legal tile rotation, placement, meeple scoring, map state version and wrong-turn rejection.
@@ -50,3 +50,6 @@ The extended `test/p2p-full-games.test.cjs` uses the **real browser engines** to
 - Host authority is browser-based, vulnerable to cheating and host-tab termination. Save recovery lasts up to 24 h only in the same browser/storage.
 - Public PeerJS signaling availability is an external dependency, and free P2P is best-effort.
 - Art asset licensing and named board-game trademarks require independent review; this PR is a transport refactor, not a legal clearance.
+
+
+Room codes are short and guessable; treat them as convenience identifiers, not secrets or access control. A guest who guesses an active code may join or spectate. PeerJS signaling may report an occupied ID, in which case a new room code is generated automatically (up to 8 attempts).
