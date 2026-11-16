@@ -1,10 +1,19 @@
 /* Pocket Game PeerJS DataConnection transport. Host browser retains authority. */
 (function(root){'use strict';
 const CONNECTING=0, OPEN=1, CLOSED=3, WAIT=75000, FRESH_WAIT=25000, RETAIN=24*3600*1000;
-const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const randomCode=()=>Array.from(crypto.getRandomValues(new Uint8Array(8)),v=>alphabet[v%alphabet.length]).join('');
+// New rooms use a 4-digit code. Legacy 8-character invites still work for 24h host snapshots.
+const validRoomCode=code=>typeof code==='string' && /^(?:[1-9]\\d{3}|[A-Z2-9]{8})$/.test(code);
 const hostId=id=>'pocketgame-v1-'+id;
 const hostKey=id=>'pocket_p2p_host_'+id;
+const randomCode=()=>{
+  for(let attempt=0;attempt<32;attempt++){
+    const code=String(1000+(crypto.getRandomValues(new Uint32Array(1))[0]%9000));
+    // Do not overwrite another locally saved host room before PeerJS checks the code.
+    try{if(localStorage.getItem(hostKey(code)))continue;}catch(_){}
+    return code;
+  }
+  throw new Error('No locally available room codes');
+};
 const makeGuestId=()=> 'pocketgame-v1-guest-'+Array.from(crypto.getRandomValues(new Uint8Array(12)),v=>v.toString(16).padStart(2,'0')).join('');
 function purge(){try{for(let i=localStorage.length-1;i>=0;i--){const k=localStorage.key(i);if(!k?.startsWith('pocket_p2p_host_')&&!k?.startsWith('pocket_p2p_view_'))continue;const v=JSON.parse(localStorage.getItem(k));const at=v?.savedAt||v?.at;if(!at||Date.now()-at>RETAIN||v.ended)localStorage.removeItem(k);}}catch(_){}}
 class P2PSocket {
@@ -14,13 +23,13 @@ class P2PSocket {
  peerOptions(){const c=root.POCKET_PEER_CONFIG||{};return {...c,config:{iceServers:[...(root.POCKET_ICE_SERVERS||[{urls:'stun:stun.l.google.com:19302'}]),...(root.POCKET_TURN_SERVERS||[])]}};}
  acquireHostLock(id){const key='pocket_p2p_active_'+id;try{const old=JSON.parse(localStorage.getItem(key)||'null');if(old&&Date.now()-old.time<12000&&old.id!==this.tabId){this.error('⚠️ 另一個分頁正在主持這個房間');return false;}localStorage.setItem(key,JSON.stringify({id:this.tabId,time:Date.now()}));this.heartbeat=setInterval(()=>localStorage.setItem(key,JSON.stringify({id:this.tabId,time:Date.now()})),4000);return true;}catch(_){return true;}}
  unlock(){clearInterval(this.heartbeat);try{const k='pocket_p2p_active_'+this.roomId,v=JSON.parse(localStorage.getItem(k)||'null');if(v?.id===this.tabId)localStorage.removeItem(k);}catch(_){}}
- create(name,gameType='gomoku',playerCount=2){if(this.roomId||this.stopped)return;if(!root.PocketGameRules?.TYPES.includes(gameType)){this.error('未知的 P2P 遊戲');return;}this.gameType=gameType;this.playerCount=root.PocketGameRules.count(gameType,playerCount);this.isHost=true;this.hostName=String(name||'房主');this.startNewHost();}
+ create(name,gameType='gomoku',playerCount=2){if(this.roomId||this.stopped)return;if(!root.PocketGameRules?.TYPES.includes(gameType)){this.error('未知的 P2P 遊戲');return;}this.gameType=gameType;this.playerCount=root.PocketGameRules.count(gameType,playerCount);this.isHost=true;this.hostName=String(name||'房主');try{this.startNewHost();}catch(_){this.error('暫時無法產生新房號，請再試一次');this.close();}}
  startNewHost(){if(this.roomId)try{localStorage.removeItem(hostKey(this.roomId))}catch(_){}this.roomId=randomCode();this.authority=new root.PocketGameAuthority(this.roomId,this.hostName,(to,msg)=>this.deliver(to,msg),this.gameType,this.playerCount);this.persistHost();this.startPeer();}
  persistHost(){if(!this.isHost||!this.authority)return;this.authority.onChange=()=>this.saveHost();this.saveHost();}
  saveHost(){if(!this.isHost||!this.authority)return;try{localStorage.setItem(hostKey(this.roomId),JSON.stringify({room:this.authority.exportState(),savedAt:Date.now()}));}catch(_){}}
- restore(id){if(this.roomId||this.stopped)return false;id=String(id).toUpperCase();try{const saved=JSON.parse(localStorage.getItem(hostKey(id))||'null');if(!saved||saved.room?.id!==id||saved.ended||Date.now()-saved.savedAt>RETAIN){localStorage.removeItem(hostKey(id));return false;}if(!this.acquireHostLock(id))return false;this.roomId=id;this.isHost=true;this.recovering=true;this.authority=root.PocketGameAuthority.restore(saved.room,(to,msg)=>this.deliver(to,msg));this.gameType=this.authority.gameType;this.playerCount=this.authority.playerCount;this.persistHost();this.startPeer();return true;}catch(e){console.warn('Host restore failed',e);return false;}}
+ restore(id){if(this.roomId||this.stopped)return false;id=String(id).toUpperCase();if(!validRoomCode(id))return false;try{const saved=JSON.parse(localStorage.getItem(hostKey(id))||'null');if(!saved||saved.room?.id!==id||saved.ended||Date.now()-saved.savedAt>RETAIN){localStorage.removeItem(hostKey(id));return false;}if(!this.acquireHostLock(id))return false;this.roomId=id;this.isHost=true;this.recovering=true;this.authority=root.PocketGameAuthority.restore(saved.room,(to,msg)=>this.deliver(to,msg));this.gameType=this.authority.gameType;this.playerCount=this.authority.playerCount;this.persistHost();this.startPeer();return true;}catch(e){console.warn('Host restore failed',e);return false;}}
  clearHost(){try{localStorage.removeItem(hostKey(this.roomId));}catch(_){}this.unlock();}
- join(id){if(this.roomId||this.stopped)return;id=String(id||'').toUpperCase().trim();if(!/^[A-Z2-9]{8}$/.test(id)){this.error('房間號碼需為 8 位英數字');return;}this.roomId=id;this.isHost=false;this.startPeer();}
+ join(id){if(this.roomId||this.stopped)return;id=String(id||'').toUpperCase().trim();if(!validRoomCode(id)){this.error('請輸入 4 位數字房號（舊版 8 碼房號也可用）');return;}this.roomId=id;this.isHost=false;this.startPeer();}
  startPeer(){if(this.stopped)return;const generation=++this.generation;this.peer?.destroy?.();this.peer=null;if(!root.Peer){this.error('缺少本地 PeerJS 程式庫，請檢查 vendor/peerjs.min.js');return;}
   const id=this.isHost?hostId(this.roomId):makeGuestId();const p=new root.Peer(id,this.peerOptions());this.peer=p;
   p.on('open',()=>{if(generation!==this.generation||this.stopped)return;this.creationAttempts=0;if(this.isHost){this.hostAnnounced=true;this.readyState=OPEN;this.onopen?.();this.emit({type:'room_created',roomId:this.roomId,role:'black',resumeToken:this.authority.players.black.resumeToken,roomState:this.authority.snapshot('black')});}
@@ -28,7 +37,7 @@ class P2PSocket {
   p.on('connection',conn=>{if(!this.isHost||conn.peer===hostId(this.roomId)||!String(conn.peer).startsWith('pocketgame-v1-guest-')){conn.close();return;}this.bind(conn.peer,conn);});
   p.on('disconnected',()=>{if(this.stopped||generation!==this.generation||p.destroyed)return;this.error('⚠️ 信令暫時離線，既有對戰連線不受影響');this.signalReconnect(p,generation);});
   p.on('error',err=>{if(generation!==this.generation||this.stopped)return;const t=err?.type||'';
-    if(this.isHost&&t==='unavailable-id'){if(this.recovering){this.error('⚠️ 舊房號尚未釋放，正在等待恢復…');this.reopenPeer(3000);}else if(++this.creationAttempts<8){this.authority?.dispose?.();this.startNewHost();}else this.error('建立房間失敗，請稍後再試');return;}
+    if(this.isHost&&t==='unavailable-id'){if(this.recovering){this.error('⚠️ 舊房號尚未釋放，正在等待恢復…');this.reopenPeer(3000);}else if(++this.creationAttempts<8){this.authority?.dispose?.();try{this.startNewHost();}catch(_){this.error('暫時無法產生新房號，請再試一次');this.close();}}else{this.authority?.dispose?.();this.clearHost();this.error('房號重複過多，請再試一次');this.close();}return;}
     if(!this.isHost&&(t==='peer-unavailable'||t==='network'||t==='server-error')){this.awaitHost();return;}
     this.error('⚠️ PeerJS 信令錯誤：'+String(t||err?.message||'unknown'));});
   p.on('close',()=>{if(this.stopped||generation!==this.generation)return;if(this.isHost)this.reopenPeer(1500);else this.awaitHost();});
@@ -59,5 +68,6 @@ class P2PSocket {
  ended(message){if(this.stopped)return;this.emit({type:'room_ended',message});this.close();}
  close(){if(this.stopped)return;this.stopped=true;this.readyState=CLOSED;clearTimeout(this.retryTimer);clearTimeout(this.deadlineTimer);clearTimeout(this.signalTimer);clearTimeout(this.connectTimeout);this.unlock();for(const [id,c] of [...this.peers])this.disposePeer(id,c);try{this.peer?.destroy()}catch(_){}this.authority?.dispose?.();this.onclose?.();}
 }
+P2PSocket.isValidRoomCode=validRoomCode;
 root.PocketP2PSocket=P2PSocket;
 })(window);
