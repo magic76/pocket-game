@@ -1,13 +1,30 @@
-/* Browser host authority — phase 1: Gomoku. Existing GomokuEngine is reused. */
+/* Browser host authority: shared two-player turn/rule validation for four board engines. */
 (function (root) {
   const ROLES = ['black', 'white'];
+  const SUPPORTED = ['gomoku', 'reversi', 'connect4', 'uttt'];
+  const ENGINES = {
+    gomoku: () => new root.GomokuEngine(15),
+    reversi: () => new root.ReversiEngine(8),
+    connect4: () => new root.Connect4Engine(7, 6),
+    uttt: () => new root.UltimateTicTacToeEngine()
+  };
+  const ownTurn = {
+    gomoku: {black:'black', white:'white'},
+    reversi: {black:'black', white:'white'},
+    connect4: {red:'black', yellow:'white'},
+    uttt: {X:'black', O:'white'}
+  };
+  const index = (v, max) => Number.isInteger(v) && v >= 0 && v <= max;
+  const validGame = v => SUPPORTED.includes(v);
   const GRACE_MS=5*60*1000, VOTE_MS=30*1000;
   const token = () => Array.from(crypto.getRandomValues(new Uint8Array(24)), b => b.toString(16).padStart(2, '0')).join('');
   class GomokuAuthority {
-    constructor(roomId, hostName, deliver) {
+    constructor(roomId, hostName, deliver, gameType = 'gomoku') {
+      if (!validGame(gameType)) throw new Error('Unsupported P2P game');
+      this.gameType = gameType;
       this.id = roomId;
       this.deliver = deliver; // (peerId, protocolMessage) => void; 'host' is local
-      this.engine = new root.GomokuEngine(15);
+      this.engine = ENGINES[gameType]();
       this.players = {black: {name: hostName.slice(0,20), resumeToken: token(), peerId:'host', connected:true}, white:null};
       this.spectators = new Map();
       this.restartVotes = new Set();
@@ -15,26 +32,75 @@
       this.status = 'waiting';this.expiryTimers=new Map();this.voteTimer=null;this.onChange=null;
     }
     exportState() {
-      return {schema:1,id:this.id,version:this.version,players:this.players,engine:{board:this.engine.board,turn:this.engine.turn,winner:this.engine.winner,lastMove:this.engine.lastMove,winningLine:this.engine.winningLine,moveHistory:this.engine.moveHistory},restartVotes:[...this.restartVotes]};
+      const e = this.engine;
+      return {
+        schema:2, id:this.id, gameType:this.gameType, version:this.version,
+        players:this.players,
+        engine:{
+          board:e.board ?? null, subBoards:e.subBoards ?? null, mainBoard:e.mainBoard ?? null,
+          activeBoard:e.activeBoard ?? null, turn:e.turn, winner:e.winner,
+          lastMove:e.lastMove, winningLine:e.winningLine ?? null,
+          winningCells:e.winningCells ?? null, justFlipped:e.justFlipped ?? null,
+          passedTurn:e.passedTurn ?? false, moveHistory:e.moveHistory ?? []
+        },
+        restartVotes:[...this.restartVotes]
+      };
     }
-    static restore(saved,deliver) {
-      if(!saved||saved.schema!==1||!saved.id||!saved.players?.black||!Array.isArray(saved.engine?.board)||saved.engine.board.length!==15)throw new Error('Invalid saved room');
-      const result=new GomokuAuthority(saved.id,saved.players.black.name,deliver);
-      result.version=Number.isSafeInteger(saved.version)?saved.version:0;
-      for(const role of ROLES){const old=saved.players[role];result.players[role]=old?{name:String(old.name).slice(0,20),resumeToken:old.resumeToken,peerId:role==='black'?'host':null,connected:role==='black'}:null;}
-      result.engine.loadState(saved.engine);
-      result.engine.moveHistory=Array.isArray(saved.engine.moveHistory)?saved.engine.moveHistory:[];
-      result.restartVotes.clear();result.updateStatus();
-      if(result.players.white){result.expiryTimers.set('white',setTimeout(()=>result.expire('white',null),GRACE_MS));}
+    static restore(saved, deliver) {
+      const gameType = saved?.schema === 1 ? 'gomoku' : saved?.gameType;
+      if (!saved || ![1,2].includes(saved.schema) || !validGame(gameType) ||
+          !saved.id || !saved.players?.black || !saved.engine || typeof saved.engine !== 'object') {
+        throw new Error('Invalid saved room');
+      }
+      const e = saved.engine;
+      const properGrid = (grid, rows, cols) => Array.isArray(grid) && grid.length === rows &&
+        grid.every(row => Array.isArray(row) && row.length === cols);
+      const shapeOK = gameType === 'uttt'
+        ? properGrid(e.mainBoard,3,3) && Array.isArray(e.subBoards) &&
+          e.subBoards.length === 3 && e.subBoards.every(row => Array.isArray(row) && row.length === 3 &&
+            row.every(sub => properGrid(sub,3,3)))
+        : properGrid(e.board, gameType === 'connect4'?6:gameType === 'reversi'?8:15,
+                    gameType === 'connect4'?7:gameType === 'reversi'?8:15);
+      if (!shapeOK) throw new Error('Invalid saved game board');
+      const result = new GomokuAuthority(saved.id, saved.players.black.name, deliver, gameType);
+      result.version = Number.isSafeInteger(saved.version) && saved.version >= 0 ? saved.version : 0;
+      for (const role of ROLES) {
+        const old = saved.players[role];
+        result.players[role] = old ? {
+          name:String(old.name || '').slice(0,20), resumeToken:old.resumeToken,
+          peerId:role === 'black'?'host':null, connected:role === 'black'
+        } : null;
+      }
+      result.engine.loadState(e);
+      // Some local rule engines intentionally restore only their public fields.
+      // Preserve the remaining derived state used for visual feedback and history.
+      if (gameType === 'gomoku') result.engine.moveHistory = Array.isArray(e.moveHistory)?e.moveHistory:[];
+      if (gameType === 'reversi') {
+        result.engine.justFlipped = Array.isArray(e.justFlipped)?e.justFlipped:[];
+        result.engine.passedTurn = e.passedTurn === true;
+      }
+      result.restartVotes.clear();
+      result.updateStatus();
+      if (result.players.white) {
+        result.expiryTimers.set('white', setTimeout(() => result.expire('white',null), GRACE_MS));
+      }
       return result;
     }
     changed(){this.onChange?.(this.exportState());}
     player(role) { const p = this.players[role]; return p ? {name:p.name,ready:true,connected:p.connected,reconnecting:!p.connected} : null; }
     snapshot() {
-      return {roomId:this.id, gameType:'gomoku',playerCount:2,board:this.engine.board,turn:this.engine.turn,
-        winner:this.engine.winner,lastMove:this.engine.lastMove,winningLine:this.engine.winningLine,size:15,
-        status:this.status,players:{black:this.player('black'),white:this.player('white'),blue:null,green:null},
-        spectatorCount:this.spectators.size,restartVotes:[...this.restartVotes],version:this.version};
+      const e=this.engine;
+      return {
+        roomId:this.id, gameType:this.gameType, playerCount:2,
+        board:e.board ?? null, subBoards:e.subBoards ?? null,
+        mainBoard:e.mainBoard ?? null, activeBoard:e.activeBoard ?? null,
+        turn:e.turn, winner:e.winner, lastMove:e.lastMove,
+        winningLine:e.winningLine ?? null, winningCells:e.winningCells ?? null,
+        scores:this.gameType==='reversi'?e.getCounts():null,
+        size:e.size ?? null, status:this.status,
+        players:{black:this.player('black'),white:this.player('white'),blue:null,green:null},
+        spectatorCount:this.spectators.size,restartVotes:[...this.restartVotes],version:this.version
+      };
     }
     send(peerId, type, fields={}) { this.deliver(peerId, {type,...fields,roomState:this.snapshot()}); }
     broadcast(type, fields={}) {
@@ -44,6 +110,23 @@
     }
     error(id,message) { this.deliver(id,{type:'error',message}); this.send(id,'state_sync'); }
     updateStatus() { this.status = this.engine.winner ? 'ended' : !this.players.white ? 'waiting' : Object.values(this.players).every(p=>p?.connected) ? 'playing' : 'reconnecting'; }
+    roleForTurn() { return ownTurn[this.gameType][this.engine.turn] || null; }
+    legalMove(data) {
+      const e = this.engine;
+      switch (this.gameType) {
+        case 'gomoku':
+        case 'reversi': {
+          const max=this.gameType==='gomoku'?14:7;
+          return index(data.x,max) && index(data.y,max) && e.makeMove(data.x,data.y);
+        }
+        case 'connect4':
+          return index(data.col,6) && e.makeMove(data.col);
+        case 'uttt':
+          return ['mainR','mainC','subR','subC'].every(k=>index(data[k],2)) &&
+            e.makeMove(data.mainR,data.mainC,data.subR,data.subC);
+        default: return false;
+      }
+    }
     join(id, data) {
       let role = null, resumed = false;
       if(typeof data.resumeToken==='string') role=ROLES.find(r=>this.players[r]?.resumeToken===data.resumeToken) || null;
@@ -82,11 +165,11 @@
         else this.broadcast('restart_requested',{by:this.players[role].name,neededVotes:2});return;
       }
       if(data.type!=='move')return;
-      if(role==='spectator'||this.status!=='playing'||role!==this.engine.turn) return this.error(id,'現在不是你的回合');
-      const x=data.x,y=data.y;
-      if(!Number.isInteger(x)||!Number.isInteger(y)||x<0||x>=15||y<0||y>=15||!this.engine.makeMove(x,y))return this.error(id,'這一步不符合規則');
+      if(role==='spectator'||this.status!=='playing'||role!==this.roleForTurn()) return this.error(id,'現在不是你的回合');
+      if(!this.legalMove(data))return this.error(id,'這一步不符合規則');
       this.version++;this.restartVotes.clear();this.updateStatus();this.broadcast('move_made',{move:{...this.engine.lastMove,by:role}});
     }
   }
-  root.PocketGomokuAuthority=GomokuAuthority;
+  root.PocketGameAuthority=GomokuAuthority;
+  root.PocketGomokuAuthority=GomokuAuthority; // Keep legacy test/restore name.
 })(window);
