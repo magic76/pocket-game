@@ -31,6 +31,8 @@ jobs:
         run: npm test
       - name: Check browser source syntax
         run: |
+          node --check public/js/p2p-game-rules.js
+          node --check public/js/p2p-carc-rules.js
           node --check public/js/p2p-authority.js
           node --check public/js/p2p-transport.js
           node --check public/js/app.js
